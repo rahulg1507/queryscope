@@ -2,6 +2,7 @@ package com.queryscope.backend.engine.execution;
 
 import com.queryscope.backend.engine.plan.ExecutionPlan;
 import com.queryscope.backend.engine.plan.ExecutionPlanNode;
+import com.queryscope.backend.engine.plan.AggregatePlan;
 import com.queryscope.backend.engine.plan.FilterPlan;
 import com.queryscope.backend.engine.plan.JoinPlan;
 import com.queryscope.backend.engine.plan.JoinStrategy;
@@ -27,6 +28,11 @@ public final class ExecutionPlanExecutor {
         }
         if (node instanceof FilterPlan filter) {
             return new FilterOperator(operatorFor(filter.child()), filter.condition(), filter.table());
+        }
+        if (node instanceof AggregatePlan aggregate) {
+            return new AggregateOperator(
+                    operatorFor(aggregate.child()), aggregate.groupBy(), aggregate.aggregates(), aggregate.table()
+            );
         }
         if (node instanceof JoinPlan join) {
             QueryOperator left = operatorFor(join.left());

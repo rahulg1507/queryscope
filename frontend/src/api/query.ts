@@ -16,6 +16,7 @@ export type ParsedQuery = {
   columns: Array<Record<string, unknown>>
   from: Record<string, unknown>
   where: Record<string, unknown> | null
+  groupBy?: Array<Record<string, unknown>>
 }
 
 export type QueryResult = {

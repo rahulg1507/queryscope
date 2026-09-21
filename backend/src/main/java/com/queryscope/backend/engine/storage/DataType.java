@@ -7,7 +7,8 @@ import java.util.Locale;
 public enum DataType {
     INTEGER,
     STRING,
-    BOOLEAN;
+    BOOLEAN,
+    DOUBLE;
 
     public Object coerce(Object value, String columnName) {
         if (value == null) {
@@ -26,6 +27,12 @@ public enum DataType {
                     throw invalidType(columnName, this, value);
                 }
                 yield value;
+            }
+            case DOUBLE -> {
+                if (!(value instanceof Number)) {
+                    throw invalidType(columnName, this, value);
+                }
+                yield ((Number) value).doubleValue();
             }
         };
     }

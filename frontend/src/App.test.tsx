@@ -103,6 +103,26 @@ const hashJoinResult = {
   },
 }
 
+const aggregateResult = {
+  columns: [{ name: 'user_id', type: 'INTEGER' }, { name: 'SUM(amount)', type: 'INTEGER' }],
+  rows: [[1, 130], [2, 300], [3, 60]],
+  rowCount: 3,
+  metrics: { rowsScanned: 4, rowsReturned: 3 },
+  executionPlan: {
+    type: 'PROJECTION',
+    details: { columns: ['user_id', 'SUM(amount)'] },
+    inputRows: 3,
+    outputRows: 3,
+    children: [{
+      type: 'AGGREGATE',
+      details: { groupBy: ['user_id'], functions: ['SUM(amount)'], groups: 3 },
+      inputRows: 4,
+      outputRows: 3,
+      children: [{ type: 'TABLE_SCAN', details: { table: 'expenses' }, inputRows: 4, outputRows: 4, children: [] }],
+    }],
+  },
+}
+
 function healthyFetch(
   parseResponse: Response | Error | Promise<Response> = jsonResponse(parsedAst),
   executeResponse: Response | Error | Promise<Response> = jsonResponse(queryResult),
@@ -194,6 +214,23 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('EQUIVALENT RESULTS')).toBeInTheDocument())
     expect(screen.getByText('Comparisons / lookups')).toBeInTheDocument()
     expect(screen.getByText('Rows inserted')).toBeInTheDocument()
+  })
+
+  it('loads an aggregate example and renders aggregate rows and plan metrics', async () => {
+    healthyFetch(jsonResponse(parsedAst), jsonResponse(aggregateResult))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /SELECT user_id, SUM\(amount\)/ }))
+    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue(
+      'SELECT user_id, SUM(amount)\nFROM expenses\nGROUP BY user_id;',
+    )
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+
+    await waitFor(() => expect(screen.getByText('AGGREGATE')).toBeInTheDocument())
+    expect(screen.getAllByText('SUM(amount)').length).toBeGreaterThan(0)
+    expect(screen.getByText('groups')).toBeInTheDocument()
+    expect(screen.getByText('130')).toBeInTheDocument()
   })
 
   it('shows a parser error returned by the API', async () => {

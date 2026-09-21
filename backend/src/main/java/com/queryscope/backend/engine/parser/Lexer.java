@@ -99,6 +99,11 @@ public class Lexer {
             case "join" -> TokenType.JOIN;
             case "on" -> TokenType.ON;
             case "where" -> TokenType.WHERE;
+            case "group" -> TokenType.GROUP;
+            case "by" -> TokenType.BY;
+            case "count" -> TokenType.COUNT;
+            case "sum" -> TokenType.SUM;
+            case "avg" -> TokenType.AVG;
             case "true", "false" -> TokenType.BOOLEAN;
             default -> TokenType.IDENTIFIER;
         };

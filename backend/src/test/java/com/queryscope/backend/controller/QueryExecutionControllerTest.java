@@ -108,4 +108,30 @@ class QueryExecutionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid join strategy 'sort_merge'. Supported strategies: NESTED_LOOP, HASH."));
     }
+
+    @Test
+    void executesGroupedAggregateAndReturnsAggregatePlanMetadata() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT user_id, SUM(amount) FROM expenses GROUP BY user_id\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.columns[0].name").value("user_id"))
+                .andExpect(jsonPath("$.columns[1].name").value("SUM(amount)"))
+                .andExpect(jsonPath("$.rows[0][0]").value(1))
+                .andExpect(jsonPath("$.rows[0][1]").value(130))
+                .andExpect(jsonPath("$.rowCount").value(3))
+                .andExpect(jsonPath("$.executionPlan.type").value("PROJECTION"))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("AGGREGATE"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.groups").value(3))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.functions[0]").value("SUM(amount)"));
+    }
+
+    @Test
+    void returnsBadRequestForInvalidGroupingSemantics() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT name, SUM(amount) FROM expenses GROUP BY user_id\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Column 'name' must appear in GROUP BY or be aggregated."));
+    }
 }

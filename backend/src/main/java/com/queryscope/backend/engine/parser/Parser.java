@@ -1,6 +1,11 @@
 package com.queryscope.backend.engine.parser;
 
 import com.queryscope.backend.engine.ast.BooleanLiteral;
+import com.queryscope.backend.engine.ast.AggregateColumnArgument;
+import com.queryscope.backend.engine.ast.AggregateExpression;
+import com.queryscope.backend.engine.ast.AggregateFunction;
+import com.queryscope.backend.engine.ast.AggregateSelectItem;
+import com.queryscope.backend.engine.ast.AggregateWildcardArgument;
 import com.queryscope.backend.engine.ast.ColumnExpression;
 import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
@@ -57,11 +62,13 @@ public class Parser {
             where = parseCondition();
         }
 
+        List<ColumnExpression> groupBy = parseGroupBy();
+
         match(TokenType.SEMICOLON);
         if (!check(TokenType.EOF)) {
             throw error("Unexpected trailing token '" + peek().lexeme() + "'", peek());
         }
-        return new SelectStatement(columns, source, where);
+        return new SelectStatement(columns, source, where, groupBy);
     }
 
     private List<SelectItem> parseSelectItems() {
@@ -71,17 +78,64 @@ public class Parser {
             }
             return List.of(new WildcardSelectItem());
         }
-        if (!check(TokenType.IDENTIFIER)) {
-            throw error("Expected SELECT column or '*'", peek());
+        if (!check(TokenType.IDENTIFIER) && !isAggregateFunction(peek().type())) {
+            throw error("Expected SELECT column, aggregate function, or '*'", peek());
         }
 
         List<SelectItem> columns = new ArrayList<>();
-        columns.add(parseColumnSelectItem());
+        columns.add(parseSelectItem());
         while (match(TokenType.COMMA)) {
-            if (!check(TokenType.IDENTIFIER)) {
-                throw error("Expected identifier after ','", peek());
+            if (!check(TokenType.IDENTIFIER) && !isAggregateFunction(peek().type())) {
+                throw error("Expected identifier or aggregate function after ','", peek());
             }
-            columns.add(parseColumnSelectItem());
+            columns.add(parseSelectItem());
+        }
+        return List.copyOf(columns);
+    }
+
+    private SelectItem parseSelectItem() {
+        if (isAggregateFunction(peek().type())) {
+            return new AggregateSelectItem(parseAggregateExpression());
+        }
+        if (check(TokenType.IDENTIFIER) && peekNext().type() == TokenType.LPAREN) {
+            throw error("Unsupported aggregate function '" + peek().lexeme() + "'", peek());
+        }
+        return parseColumnSelectItem();
+    }
+
+    private AggregateExpression parseAggregateExpression() {
+        Token functionToken = advance();
+        AggregateFunction function = switch (functionToken.type()) {
+            case COUNT -> AggregateFunction.COUNT;
+            case SUM -> AggregateFunction.SUM;
+            case AVG -> AggregateFunction.AVG;
+            default -> throw error("Expected aggregate function", functionToken);
+        };
+        consume(TokenType.LPAREN, "Expected '(' after " + functionToken.lexeme());
+        if (match(TokenType.STAR)) {
+            if (function != AggregateFunction.COUNT) {
+                throw error(function + " only supports a column argument", previous());
+            }
+            consume(TokenType.RPAREN, "Expected ')' after aggregate argument");
+            return new AggregateExpression(function, new AggregateWildcardArgument());
+        }
+        if (!check(TokenType.IDENTIFIER)) {
+            throw error("Expected '*' or column argument for " + function, peek());
+        }
+        ColumnExpression column = parseColumnReference("Expected aggregate column argument");
+        consume(TokenType.RPAREN, "Expected ')' after aggregate argument");
+        return new AggregateExpression(function, new AggregateColumnArgument(column.qualifier(), column.name()));
+    }
+
+    private List<ColumnExpression> parseGroupBy() {
+        if (!match(TokenType.GROUP)) {
+            return List.of();
+        }
+        consume(TokenType.BY, "Expected BY after GROUP");
+        List<ColumnExpression> columns = new ArrayList<>();
+        columns.add(parseColumnReference("Expected column after GROUP BY"));
+        while (match(TokenType.COMMA)) {
+            columns.add(parseColumnReference("Expected column after GROUP BY ','"));
         }
         return List.copyOf(columns);
     }
@@ -175,11 +229,19 @@ public class Parser {
         return tokens.get(current);
     }
 
+    private Token peekNext() {
+        return current + 1 < tokens.size() ? tokens.get(current + 1) : tokens.get(tokens.size() - 1);
+    }
+
     private Token previous() {
         return tokens.get(current - 1);
     }
 
     private static ParserException error(String message, Token token) {
         return new ParserException(message + " at position " + token.position());
+    }
+
+    private static boolean isAggregateFunction(TokenType type) {
+        return type == TokenType.COUNT || type == TokenType.SUM || type == TokenType.AVG;
     }
 }

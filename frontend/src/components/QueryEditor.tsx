@@ -21,6 +21,9 @@ const examples = [
   'SELECT name FROM users WHERE age > 18;',
   'SELECT name FROM users WHERE active = true;',
   'SELECT users.name, expenses.amount\nFROM users\nJOIN expenses\nON users.id = expenses.user_id;',
+  'SELECT COUNT(*) FROM users;',
+  'SELECT user_id, SUM(amount)\nFROM expenses\nGROUP BY user_id;',
+  'SELECT user_id, AVG(amount)\nFROM expenses\nGROUP BY user_id;',
 ]
 
 export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {

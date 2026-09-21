@@ -1,6 +1,11 @@
 package com.queryscope.backend.engine.parser;
 
 import com.queryscope.backend.engine.ast.BooleanLiteral;
+import com.queryscope.backend.engine.ast.AggregateColumnArgument;
+import com.queryscope.backend.engine.ast.AggregateExpression;
+import com.queryscope.backend.engine.ast.AggregateFunction;
+import com.queryscope.backend.engine.ast.AggregateSelectItem;
+import com.queryscope.backend.engine.ast.AggregateWildcardArgument;
 import com.queryscope.backend.engine.ast.ColumnExpression;
 import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
@@ -99,6 +104,23 @@ class ParserTest {
     }
 
     @Test
+    void parsesAggregateExpressionsAndGroupBy() {
+        SelectStatement statement = parse("sElEcT user_id, sUm(amount) FROM expenses gRoUp bY user_id");
+
+        assertThat(statement.columns()).containsExactly(
+                new ColumnSelectItem("user_id"),
+                new AggregateSelectItem(new AggregateExpression(
+                        AggregateFunction.SUM, new AggregateColumnArgument("amount"))));
+        assertThat(statement.groupBy()).containsExactly(new ColumnExpression("user_id"));
+        assertThat(parse("SELECT COUNT(*) FROM users").columns()).containsExactly(
+                new AggregateSelectItem(new AggregateExpression(
+                        AggregateFunction.COUNT, new AggregateWildcardArgument())));
+        assertThat(parse("SELECT COUNT(age) FROM users").columns()).containsExactly(
+                new AggregateSelectItem(new AggregateExpression(
+                        AggregateFunction.COUNT, new AggregateColumnArgument("age"))));
+    }
+
+    @Test
     void reportsUsefulErrorsForInvalidQueries() {
         assertThatThrownBy(() -> parse("SELECT FROM users"))
                 .isInstanceOf(ParserException.class)
@@ -127,6 +149,15 @@ class ParserTest {
         assertThatThrownBy(() -> parse("SELECT * FROM users JOIN expenses ON users.id > expenses.user_id"))
                 .isInstanceOf(ParserException.class)
                 .hasMessageContaining("JOIN conditions only support equality");
+        assertThatThrownBy(() -> parse("SELECT user_id, SUM(amount) FROM expenses GROUP"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("Expected BY after GROUP");
+        assertThatThrownBy(() -> parse("SELECT user_id, SUM() FROM expenses"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("Expected '*' or column argument");
+        assertThatThrownBy(() -> parse("SELECT UNKNOWN(amount) FROM expenses"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("Unsupported aggregate function");
     }
 
     private static SelectStatement parse(String sql) {

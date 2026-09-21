@@ -3,6 +3,8 @@ package com.queryscope.backend.controller;
 import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.SelectStatement;
 import com.queryscope.backend.engine.ast.TableReference;
+import com.queryscope.backend.engine.parser.Lexer;
+import com.queryscope.backend.engine.parser.Parser;
 import com.queryscope.backend.service.QueryParserService;
 import com.queryscope.backend.service.QueryExecutionService;
 import org.junit.jupiter.api.Test;
@@ -68,5 +70,20 @@ class QueryControllerTest {
                         .content("{\"sql\":"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Malformed request body"));
+    }
+
+    @Test
+    void returnsTypedAggregateAst() throws Exception {
+        String sql = "SELECT user_id, SUM(amount) FROM expenses GROUP BY user_id";
+        given(queryParserService.parse(sql)).willReturn(new Parser(new Lexer(sql).tokenize()).parse());
+
+        mockMvc.perform(post("/api/query/parse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"" + sql + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.columns[1].type").value("AGGREGATE"))
+                .andExpect(jsonPath("$.columns[1].expression.function").value("SUM"))
+                .andExpect(jsonPath("$.columns[1].expression.argument.name").value("amount"))
+                .andExpect(jsonPath("$.groupBy[0].name").value("user_id"));
     }
 }
