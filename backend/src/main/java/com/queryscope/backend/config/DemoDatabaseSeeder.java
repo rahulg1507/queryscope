@@ -35,5 +35,18 @@ public class DemoDatabaseSeeder {
         users.insert(Map.of("id", 3, "name", "John", "age", 17, "active", false));
         users.insert(Map.of("id", 4, "name", "Maya", "age", 25, "active", true));
         database.createTable(users);
+
+        TableSchema expensesSchema = new TableSchema(List.of(
+                new ColumnDefinition("id", DataType.INTEGER),
+                new ColumnDefinition("user_id", DataType.INTEGER),
+                new ColumnDefinition("description", DataType.STRING),
+                new ColumnDefinition("amount", DataType.INTEGER)
+        ));
+        Table expenses = new Table("expenses", expensesSchema);
+        expenses.insert(Map.of("id", 1, "user_id", 1, "description", "Dinner", "amount", 90));
+        expenses.insert(Map.of("id", 2, "user_id", 2, "description", "Hotel", "amount", 300));
+        expenses.insert(Map.of("id", 3, "user_id", 1, "description", "Taxi", "amount", 40));
+        expenses.insert(Map.of("id", 4, "user_id", 3, "description", "Movie", "amount", 60));
+        database.createTable(expenses);
     }
 }

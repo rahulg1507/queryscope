@@ -6,6 +6,7 @@ import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
 import com.queryscope.backend.engine.ast.ComparisonOperator;
 import com.queryscope.backend.engine.ast.Expression;
+import com.queryscope.backend.engine.ast.JoinSource;
 import com.queryscope.backend.engine.ast.NumberLiteral;
 import com.queryscope.backend.engine.ast.SelectItem;
 import com.queryscope.backend.engine.ast.SelectStatement;
@@ -13,52 +14,58 @@ import com.queryscope.backend.engine.ast.StringLiteral;
 import com.queryscope.backend.engine.ast.WildcardSelectItem;
 import com.queryscope.backend.engine.execution.QueryExecutionException;
 import com.queryscope.backend.engine.storage.DataType;
-import com.queryscope.backend.engine.storage.Database;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ExecutionPlanBuilder {
 
-    private final Database database;
-
-    public ExecutionPlanBuilder(Database database) {
-        this.database = database;
-    }
-
     public ExecutionPlan build(SelectStatement statement) {
         if (statement == null || statement.from() == null) {
             throw new QueryExecutionException("A SELECT statement requires a table.");
         }
-        String tableName = statement.from().name();
-        ExecutionPlanNode root = new TableScanPlan(tableName);
+        ExecutionPlanNode root;
+        String sourceContext;
+        if (statement.from() instanceof com.queryscope.backend.engine.ast.TableReference table) {
+            root = new TableScanPlan(table.name());
+            sourceContext = table.name();
+        } else if (statement.from() instanceof JoinSource join) {
+            root = new NestedLoopJoinPlan(
+                    join.left().name(),
+                    join.right().name(),
+                    new JoinCondition(join.condition().left().qualifiedName(), join.condition().right().qualifiedName()),
+                    new TableScanPlan(join.left().name()),
+                    new TableScanPlan(join.right().name())
+            );
+            sourceContext = join.left().name() + " JOIN " + join.right().name();
+        } else {
+            throw new QueryExecutionException("Unsupported FROM source.");
+        }
 
         if (statement.where() != null) {
             if (!(statement.where() instanceof ComparisonExpression comparison)) {
                 throw new QueryExecutionException("Unsupported WHERE expression.");
             }
-            root = new FilterPlan(tableName, toCondition(comparison), root);
+            root = new FilterPlan(sourceContext, toCondition(comparison), root);
         }
 
-        List<String> projection = projectionColumns(statement.columns(), tableName);
+        List<String> projection = projectionColumns(statement.columns());
         if (projection != null) {
-            root = new ProjectionPlan(tableName, projection, root);
+            root = new ProjectionPlan(sourceContext, projection, root);
         }
         return new ExecutionPlan(root);
     }
 
-    private List<String> projectionColumns(List<SelectItem> items, String tableName) {
+    private List<String> projectionColumns(List<SelectItem> items) {
         if (items.size() == 1 && items.get(0) instanceof WildcardSelectItem) {
             return null;
         }
         List<String> columns = new ArrayList<>();
         for (SelectItem item : items) {
             if (item instanceof WildcardSelectItem) {
-                columns.addAll(database.requireTable(tableName).schema().columns().stream()
-                        .map(column -> column.name())
-                        .toList());
+                throw new QueryExecutionException("Wildcard cannot be combined with other SELECT columns");
             } else if (item instanceof ColumnSelectItem column) {
-                columns.add(column.name());
+                columns.add(column.qualifiedName());
             } else {
                 throw new QueryExecutionException("Unsupported SELECT item.");
             }

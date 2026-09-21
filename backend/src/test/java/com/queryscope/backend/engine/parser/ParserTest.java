@@ -5,6 +5,8 @@ import com.queryscope.backend.engine.ast.ColumnExpression;
 import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
 import com.queryscope.backend.engine.ast.ComparisonOperator;
+import com.queryscope.backend.engine.ast.JoinCondition;
+import com.queryscope.backend.engine.ast.JoinSource;
 import com.queryscope.backend.engine.ast.NumberLiteral;
 import com.queryscope.backend.engine.ast.SelectStatement;
 import com.queryscope.backend.engine.ast.StringLiteral;
@@ -72,6 +74,31 @@ class ParserTest {
     }
 
     @Test
+    void parsesQualifiedColumnsAndInnerJoin() {
+        SelectStatement statement = parse("SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id;");
+
+        assertThat(statement.from()).isEqualTo(new JoinSource(
+                new TableReference("users"),
+                new TableReference("expenses"),
+                new JoinCondition(
+                        new ColumnExpression("users", "id"),
+                        new ColumnExpression("expenses", "user_id"))));
+        assertThat(statement.columns()).containsExactly(
+                new ColumnSelectItem("users", "name"),
+                new ColumnSelectItem("expenses", "amount"));
+    }
+
+    @Test
+    void parsesJoinAndOnCaseInsensitively() {
+        assertThat(parse("select users.id from USERS join expenses on users.id = expenses.user_id").from())
+                .isEqualTo(new JoinSource(
+                        new TableReference("USERS"),
+                        new TableReference("expenses"),
+                        new JoinCondition(new ColumnExpression("users", "id"),
+                                new ColumnExpression("expenses", "user_id"))));
+    }
+
+    @Test
     void reportsUsefulErrorsForInvalidQueries() {
         assertThatThrownBy(() -> parse("SELECT FROM users"))
                 .isInstanceOf(ParserException.class)
@@ -91,6 +118,15 @@ class ParserTest {
         assertThatThrownBy(() -> parse("SELECT name FROM users extra"))
                 .isInstanceOf(ParserException.class)
                 .hasMessageContaining("Unexpected trailing token");
+        assertThatThrownBy(() -> parse("SELECT * FROM users JOIN expenses"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("Expected ON after JOIN table");
+        assertThatThrownBy(() -> parse("SELECT * FROM users JOIN ON users.id = expenses.user_id"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("Expected right table identifier after JOIN");
+        assertThatThrownBy(() -> parse("SELECT * FROM users JOIN expenses ON users.id > expenses.user_id"))
+                .isInstanceOf(ParserException.class)
+                .hasMessageContaining("JOIN conditions only support equality");
     }
 
     private static SelectStatement parse(String sql) {

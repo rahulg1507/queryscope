@@ -23,7 +23,7 @@ export function ExecutionPlanNode({ node }: ExecutionPlanNodeProps) {
   const Icon = iconFor(node.type)
 
   return (
-    <div className="plan-branch">
+    <div className={`plan-branch ${node.type === 'NESTED_LOOP_JOIN' ? 'plan-branch-join' : ''}`}>
       <article className={`plan-node plan-node-${node.type.toLowerCase()}`}>
         <div className="plan-node-heading">
           <span className="plan-node-icon"><Icon size={15} /></span>

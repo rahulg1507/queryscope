@@ -6,6 +6,9 @@ import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
 import com.queryscope.backend.engine.ast.ComparisonOperator;
 import com.queryscope.backend.engine.ast.Expression;
+import com.queryscope.backend.engine.ast.FromSource;
+import com.queryscope.backend.engine.ast.JoinCondition;
+import com.queryscope.backend.engine.ast.JoinSource;
 import com.queryscope.backend.engine.ast.NumberLiteral;
 import com.queryscope.backend.engine.ast.SelectItem;
 import com.queryscope.backend.engine.ast.SelectStatement;
@@ -33,6 +36,21 @@ public class Parser {
         List<SelectItem> columns = parseSelectItems();
         consume(TokenType.FROM, "Expected FROM after SELECT list");
         String tableName = consume(TokenType.IDENTIFIER, "Expected table identifier after FROM").lexeme();
+        TableReference leftTable = new TableReference(tableName);
+        FromSource source = leftTable;
+        if (match(TokenType.JOIN)) {
+            String rightTableName = consume(TokenType.IDENTIFIER, "Expected right table identifier after JOIN").lexeme();
+            consume(TokenType.ON, "Expected ON after JOIN table");
+            ColumnExpression leftColumn = parseColumnReference("Expected left column in JOIN condition");
+            if (!match(TokenType.EQUAL)) {
+                throw error("JOIN conditions only support equality comparisons; expected '='", peek());
+            }
+            ColumnExpression rightColumn = parseColumnReference("Expected right column in JOIN condition");
+            source = new JoinSource(leftTable, new TableReference(rightTableName), new JoinCondition(leftColumn, rightColumn));
+            if (check(TokenType.JOIN)) {
+                throw error("Multiple JOIN clauses are not supported yet", peek());
+            }
+        }
 
         Expression where = null;
         if (match(TokenType.WHERE)) {
@@ -43,7 +61,7 @@ public class Parser {
         if (!check(TokenType.EOF)) {
             throw error("Unexpected trailing token '" + peek().lexeme() + "'", peek());
         }
-        return new SelectStatement(columns, new TableReference(tableName), where);
+        return new SelectStatement(columns, source, where);
     }
 
     private List<SelectItem> parseSelectItems() {
@@ -58,21 +76,39 @@ public class Parser {
         }
 
         List<SelectItem> columns = new ArrayList<>();
-        columns.add(new ColumnSelectItem(advance().lexeme()));
+        columns.add(parseColumnSelectItem());
         while (match(TokenType.COMMA)) {
             if (!check(TokenType.IDENTIFIER)) {
                 throw error("Expected identifier after ','", peek());
             }
-            columns.add(new ColumnSelectItem(advance().lexeme()));
+            columns.add(parseColumnSelectItem());
         }
         return List.copyOf(columns);
     }
 
     private Expression parseCondition() {
-        Token column = consume(TokenType.IDENTIFIER, "Expected identifier after WHERE");
+        ColumnExpression column = parseColumnReference("Expected identifier after WHERE");
         ComparisonOperator operator = parseComparisonOperator();
         Expression right = parseLiteral();
-        return new ComparisonExpression(new ColumnExpression(column.lexeme()), operator, right);
+        return new ComparisonExpression(column, operator, right);
+    }
+
+    private ColumnSelectItem parseColumnSelectItem() {
+        Token first = consume(TokenType.IDENTIFIER, "Expected column identifier");
+        if (match(TokenType.DOT)) {
+            Token second = consume(TokenType.IDENTIFIER, "Expected column identifier after '.'");
+            return new ColumnSelectItem(first.lexeme(), second.lexeme());
+        }
+        return new ColumnSelectItem(first.lexeme());
+    }
+
+    private ColumnExpression parseColumnReference(String message) {
+        Token first = consume(TokenType.IDENTIFIER, message);
+        if (match(TokenType.DOT)) {
+            Token second = consume(TokenType.IDENTIFIER, "Expected column identifier after '.'");
+            return new ColumnExpression(first.lexeme(), second.lexeme());
+        }
+        return new ColumnExpression(first.lexeme());
     }
 
     private ComparisonOperator parseComparisonOperator() {

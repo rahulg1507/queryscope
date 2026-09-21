@@ -3,6 +3,8 @@ package com.queryscope.backend.engine.parser;
 public enum TokenType {
     SELECT,
     FROM,
+    JOIN,
+    ON,
     WHERE,
     IDENTIFIER,
     NUMBER,
@@ -19,5 +21,6 @@ public enum TokenType {
     SEMICOLON,
     LPAREN,
     RPAREN,
+    DOT,
     EOF
 }

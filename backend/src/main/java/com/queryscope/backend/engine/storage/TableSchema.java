@@ -40,11 +40,43 @@ public final class TableSchema {
     }
 
     public ColumnDefinition requireColumn(String name, String tableName) {
-        ColumnDefinition column = findColumn(name);
-        if (column == null) {
-            throw new QueryExecutionException("Unknown column '" + name + "' in table '" + tableName + "'.");
+        return resolveColumn(name, tableName).column();
+    }
+
+    public ColumnResolution resolveColumn(String reference, String tableName) {
+        String normalizedReference = normalize(reference);
+        ColumnDefinition exact = columnsByName.get(normalizedReference);
+        if (exact != null) {
+            return new ColumnResolution(reference, exact.name(), outputName(reference, exact.name()), exact);
         }
-        return column;
+
+        String qualifier = qualifier(reference);
+        String simpleName = simpleName(reference);
+        if (qualifier != null) {
+            ColumnDefinition qualified = columnsByName.get(normalize(qualifier + "." + simpleName));
+            if (qualified != null) {
+                return new ColumnResolution(reference, qualified.name(), qualified.name(), qualified);
+            }
+            if (tableName != null && qualifier.equalsIgnoreCase(tableName)) {
+                ColumnDefinition baseColumn = columnsByName.get(normalize(simpleName));
+                if (baseColumn != null) {
+                    return new ColumnResolution(reference, baseColumn.name(), reference, baseColumn);
+                }
+            }
+            throw new QueryExecutionException("Unknown column '" + reference + "' in table '" + tableName + "'.");
+        }
+
+        List<ColumnDefinition> candidates = columns.stream()
+                .filter(column -> simpleName(column.name()).equalsIgnoreCase(simpleName))
+                .toList();
+        if (candidates.size() > 1) {
+            throw new QueryExecutionException("Ambiguous column '" + reference + "'.");
+        }
+        if (candidates.isEmpty()) {
+            throw new QueryExecutionException("Unknown column '" + reference + "' in table '" + tableName + "'.");
+        }
+        ColumnDefinition column = candidates.get(0);
+        return new ColumnResolution(reference, column.name(), simpleName(column.name()), column);
     }
 
     public List<ColumnDefinition> selectColumns(List<String> names, String tableName) {
@@ -86,6 +118,20 @@ public final class TableSchema {
 
     public TableSchema project(List<String> names, String tableName) {
         return new TableSchema(selectColumns(names, tableName));
+    }
+
+    private static String outputName(String reference, String actualName) {
+        return reference.contains(".") ? actualName : simpleName(actualName);
+    }
+
+    private static String qualifier(String name) {
+        int separator = name.indexOf('.');
+        return separator < 0 ? null : name.substring(0, separator);
+    }
+
+    private static String simpleName(String name) {
+        int separator = name.lastIndexOf('.');
+        return separator < 0 ? name : name.substring(separator + 1);
     }
 
     private static String normalize(String name) {

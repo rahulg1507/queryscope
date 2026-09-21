@@ -37,6 +37,19 @@ class InMemoryQueryExecutorTest {
         users.insert(Map.of("id", 3, "name", "John", "age", 17, "active", false));
         users.insert(Map.of("id", 4, "name", "Maya", "age", 25, "active", true));
         database.createTable(users);
+
+        TableSchema expensesSchema = new TableSchema(List.of(
+                new ColumnDefinition("id", DataType.INTEGER),
+                new ColumnDefinition("user_id", DataType.INTEGER),
+                new ColumnDefinition("description", DataType.STRING),
+                new ColumnDefinition("amount", DataType.INTEGER)
+        ));
+        Table expenses = new Table("expenses", expensesSchema);
+        expenses.insert(Map.of("id", 1, "user_id", 1, "description", "Dinner", "amount", 90));
+        expenses.insert(Map.of("id", 2, "user_id", 2, "description", "Hotel", "amount", 300));
+        expenses.insert(Map.of("id", 3, "user_id", 1, "description", "Taxi", "amount", 40));
+        expenses.insert(Map.of("id", 4, "user_id", 3, "description", "Movie", "amount", 60));
+        database.createTable(expenses);
         executor = new InMemoryQueryExecutor(database);
     }
 
@@ -109,6 +122,67 @@ class InMemoryQueryExecutorTest {
         assertThat(result.executionPlan().children().get(0).type()).isEqualTo("FILTER");
         assertThat(result.executionPlan().children().get(0).details())
                 .containsEntry("condition", "active = true");
+    }
+
+    @Test
+    void executesNestedLoopJoinAndExposesBranchingPlanMetadata() {
+        QueryResult result = execute("SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id");
+
+        assertThat(result.columns()).extracting(ResultColumn::name)
+                .containsExactly("users.name", "expenses.amount");
+        assertThat(result.rows()).containsExactly(
+                List.of("Rahul", 90L), List.of("Rahul", 40L),
+                List.of("Aayan", 300L), List.of("John", 60L));
+        assertThat(result.executionPlan().type()).isEqualTo("PROJECTION");
+        var join = result.executionPlan().children().get(0);
+        assertThat(join.type()).isEqualTo("NESTED_LOOP_JOIN");
+        assertThat(join.details()).containsEntry("condition", "users.id = expenses.user_id")
+                .containsEntry("leftRows", 4)
+                .containsEntry("rightRows", 4)
+                .containsEntry("comparisons", 16)
+                .containsEntry("matches", 4);
+        assertThat(join.inputRows()).isEqualTo(8);
+        assertThat(join.outputRows()).isEqualTo(4);
+        assertThat(join.children()).extracting(node -> node.type())
+                .containsExactly("TABLE_SCAN", "TABLE_SCAN");
+    }
+
+    @Test
+    void supportsWildcardJoinAndQualifiedDuplicateColumnNames() {
+        QueryResult wildcard = execute("SELECT * FROM users JOIN expenses ON users.id = expenses.user_id");
+        assertThat(wildcard.executionPlan().type()).isEqualTo("NESTED_LOOP_JOIN");
+        assertThat(wildcard.columns()).extracting(ResultColumn::name)
+                .containsExactly("users.id", "users.name", "users.age", "users.active",
+                        "expenses.id", "expenses.user_id", "expenses.description", "expenses.amount");
+
+        QueryResult qualifiedIds = execute("SELECT users.id, expenses.id FROM users JOIN expenses ON users.id = expenses.user_id");
+        assertThat(qualifiedIds.columns()).extracting(ResultColumn::name)
+                .containsExactly("users.id", "expenses.id");
+    }
+
+    @Test
+    void resolvesUniqueColumnsAndRejectsAmbiguousOrInvalidJoinReferences() {
+        assertThat(execute("SELECT name FROM users JOIN expenses ON users.id = expenses.user_id").columns())
+                .extracting(ResultColumn::name).containsExactly("name");
+        assertThatThrownBy(() -> execute("SELECT id FROM users JOIN expenses ON users.id = expenses.user_id"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Ambiguous column 'id'.");
+        assertThatThrownBy(() -> execute("SELECT users.missing FROM users JOIN expenses ON users.id = expenses.user_id"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Unknown column 'users.missing' in table 'users JOIN expenses'.");
+        assertThatThrownBy(() -> execute("SELECT users.name FROM users JOIN expenses ON users.id = expenses.description"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Type mismatch in JOIN condition: cannot compare INTEGER with STRING.");
+    }
+
+    @Test
+    void appliesWhereAfterJoinAndKeepsJoinBranchingPlan() {
+        QueryResult result = execute("SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id WHERE expenses.amount > 100");
+
+        assertThat(result.rows()).containsExactly(List.of("Aayan", 300L));
+        assertThat(result.executionPlan().type()).isEqualTo("PROJECTION");
+        assertThat(result.executionPlan().children().get(0).type()).isEqualTo("FILTER");
+        assertThat(result.executionPlan().children().get(0).children().get(0).type()).isEqualTo("NESTED_LOOP_JOIN");
     }
 
     @Test

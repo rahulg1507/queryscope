@@ -58,4 +58,32 @@ class QueryExecutionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Malformed request body"));
     }
+
+    @Test
+    void executesJoinAndReturnsBranchingPlanMetadata() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id;\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.columns[0].name").value("users.name"))
+                .andExpect(jsonPath("$.columns[1].name").value("expenses.amount"))
+                .andExpect(jsonPath("$.rows[0][0]").value("Rahul"))
+                .andExpect(jsonPath("$.rows[1][1]").value(40))
+                .andExpect(jsonPath("$.rowCount").value(4))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("NESTED_LOOP_JOIN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.condition").value("users.id = expenses.user_id"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.comparisons").value(16))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.matches").value(4))
+                .andExpect(jsonPath("$.executionPlan.children[0].children[0].type").value("TABLE_SCAN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].children[1].type").value("TABLE_SCAN"));
+    }
+
+    @Test
+    void returnsBadRequestForAmbiguousJoinColumn() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT id FROM users JOIN expenses ON users.id = expenses.user_id;\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Ambiguous column 'id'."));
+    }
 }

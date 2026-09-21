@@ -17,8 +17,8 @@ public class DatabaseConfig {
     }
 
     @Bean
-    public ExecutionPlanBuilder executionPlanBuilder(Database database) {
-        return new ExecutionPlanBuilder(database);
+    public ExecutionPlanBuilder executionPlanBuilder() {
+        return new ExecutionPlanBuilder();
     }
 
     @Bean

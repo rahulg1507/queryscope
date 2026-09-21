@@ -12,7 +12,7 @@ public final class InMemoryQueryExecutor implements QueryExecutor {
     private final ExecutionPlanExecutor planExecutor;
 
     public InMemoryQueryExecutor(Database database) {
-        this(new ExecutionPlanBuilder(database), new ExecutionPlanExecutor(database));
+        this(new ExecutionPlanBuilder(), new ExecutionPlanExecutor(database));
     }
 
     public InMemoryQueryExecutor(ExecutionPlanBuilder planBuilder, ExecutionPlanExecutor planExecutor) {

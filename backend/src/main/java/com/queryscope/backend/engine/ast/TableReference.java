@@ -1,6 +1,6 @@
 package com.queryscope.backend.engine.ast;
 
-public record TableReference(String name) {
+public record TableReference(String name) implements FromSource {
 
     public TableReference {
         if (name == null || name.isBlank()) {

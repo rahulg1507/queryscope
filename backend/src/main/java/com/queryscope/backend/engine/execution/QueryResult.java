@@ -43,7 +43,7 @@ public record QueryResult(
                 .toList();
         int rowsScanned = findTableScanInput(result.metrics());
         return new QueryResult(columns, rows, rows.size(), new ExecutionMetrics(rowsScanned, rows.size()),
-                plan == null ? null : ExecutionPlanNodeDto.from(plan));
+                plan == null ? null : ExecutionPlanNodeDto.from(plan, result.metrics()));
     }
 
     private static int findTableScanInput(OperatorMetrics metrics) {

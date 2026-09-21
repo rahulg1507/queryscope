@@ -49,6 +49,17 @@ class LexerTest {
     }
 
     @Test
+    void tokenizesJoinKeywordsAndQualifiedColumnSeparator() {
+        List<Token> tokens = lex("JOIN expenses ON users.id = expenses.user_id");
+
+        assertThat(tokens).extracting(Token::type).containsExactly(
+                TokenType.JOIN, TokenType.IDENTIFIER, TokenType.ON,
+                TokenType.IDENTIFIER, TokenType.DOT, TokenType.IDENTIFIER,
+                TokenType.EQUAL, TokenType.IDENTIFIER, TokenType.DOT,
+                TokenType.IDENTIFIER, TokenType.EOF);
+    }
+
+    @Test
     void tokenizesIntegerAndStringLiteralsIncludingEscapedQuote() {
         List<Token> tokens = lex("-5 'Rahul''s'");
 

@@ -3,6 +3,7 @@ package com.queryscope.backend.engine.execution;
 import com.queryscope.backend.engine.plan.FilterCondition;
 import com.queryscope.backend.engine.plan.PlanComparisonOperator;
 import com.queryscope.backend.engine.storage.ColumnDefinition;
+import com.queryscope.backend.engine.storage.ColumnResolution;
 import com.queryscope.backend.engine.storage.DataType;
 import com.queryscope.backend.engine.storage.Row;
 
@@ -25,10 +26,10 @@ public final class FilterOperator implements QueryOperator {
     @Override
     public OperatorResult execute() {
         OperatorResult inputResult = input.execute();
-        validateCondition(inputResult);
+        ColumnResolution resolvedColumn = validateCondition(inputResult);
         List<Row> filtered = new ArrayList<>();
         for (Row row : inputResult.rows()) {
-            if (matches(row)) {
+            if (matches(row, resolvedColumn.actualName())) {
                 filtered.add(row);
             }
         }
@@ -39,8 +40,9 @@ public final class FilterOperator implements QueryOperator {
         );
     }
 
-    private void validateCondition(OperatorResult inputResult) {
-        ColumnDefinition leftColumn = inputResult.schema().requireColumn(condition.column(), tableName);
+    private ColumnResolution validateCondition(OperatorResult inputResult) {
+        ColumnResolution resolvedColumn = inputResult.schema().resolveColumn(condition.column(), tableName);
+        ColumnDefinition leftColumn = resolvedColumn.column();
         DataType rightType = condition.valueType();
         if (leftColumn.type() != rightType) {
             throw new QueryExecutionException("Type mismatch: cannot compare " + leftColumn.type()
@@ -48,13 +50,14 @@ public final class FilterOperator implements QueryOperator {
         }
         if (leftColumn.type() != DataType.INTEGER && condition.operator() != PlanComparisonOperator.EQUAL
                 && condition.operator() != PlanComparisonOperator.NOT_EQUAL) {
-            throw new QueryExecutionException("Operator " + condition.operator()
-                    + " is not supported for " + leftColumn.type() + " values.");
+                throw new QueryExecutionException("Operator " + condition.operator()
+                        + " is not supported for " + leftColumn.type() + " values.");
         }
+        return resolvedColumn;
     }
 
-    private boolean matches(Row row) {
-        Object left = row.get(condition.column());
+    private boolean matches(Row row, String actualColumnName) {
+        Object left = row.get(actualColumnName);
         Object right = condition.value();
         int comparison = compare(left, right);
         return switch (condition.operator()) {

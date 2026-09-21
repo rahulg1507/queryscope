@@ -15,6 +15,7 @@ const examples = [
   'SELECT name, age FROM users;',
   'SELECT name FROM users WHERE age > 18;',
   'SELECT name FROM users WHERE active = true;',
+  'SELECT users.name, expenses.amount\nFROM users\nJOIN expenses\nON users.id = expenses.user_id;',
 ]
 
 export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, isParsing, isExecuting }: QueryEditorProps) {

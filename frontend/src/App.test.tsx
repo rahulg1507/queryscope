@@ -59,6 +59,29 @@ const queryResult = {
   },
 }
 
+const joinResult = {
+  columns: [{ name: 'users.name', type: 'STRING' }, { name: 'expenses.amount', type: 'INTEGER' }],
+  rows: [['Rahul', 90], ['Aayan', 300], ['Rahul', 40], ['John', 60]],
+  rowCount: 4,
+  metrics: { rowsScanned: 4, rowsReturned: 4 },
+  executionPlan: {
+    type: 'PROJECTION',
+    details: { columns: ['users.name', 'expenses.amount'] },
+    inputRows: 4,
+    outputRows: 4,
+    children: [{
+      type: 'NESTED_LOOP_JOIN',
+      details: { condition: 'users.id = expenses.user_id', leftRows: 4, rightRows: 4, comparisons: 16, matches: 4 },
+      inputRows: 8,
+      outputRows: 4,
+      children: [
+        { type: 'TABLE_SCAN', details: { table: 'users' }, inputRows: 4, outputRows: 4, children: [] },
+        { type: 'TABLE_SCAN', details: { table: 'expenses' }, inputRows: 4, outputRows: 4, children: [] },
+      ],
+    }],
+  },
+}
+
 function healthyFetch(
   parseResponse: Response | Error | Promise<Response> = jsonResponse(parsedAst),
   executeResponse: Response | Error | Promise<Response> = jsonResponse(queryResult),
@@ -105,6 +128,24 @@ describe('App', () => {
     expect(screen.getByText('TABLE SCAN')).toBeInTheDocument()
     expect(screen.getByText('age > 18')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/query/execute')).toBe(true)
+  })
+
+  it('loads the JOIN example and renders a branching plan', async () => {
+    healthyFetch(jsonResponse(parsedAst), jsonResponse(joinResult))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /SELECT users\.name, expenses\.amount/ }))
+    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue(
+      'SELECT users.name, expenses.amount\nFROM users\nJOIN expenses\nON users.id = expenses.user_id;',
+    )
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+
+    await waitFor(() => expect(screen.getByText('NESTED LOOP JOIN')).toBeInTheDocument())
+    expect(screen.getAllByText('TABLE SCAN')).toHaveLength(2)
+    expect(screen.getByText('comparisons')).toBeInTheDocument()
+    expect(screen.getByText('16')).toBeInTheDocument()
+    expect(screen.getAllByText('Rahul')).toHaveLength(2)
   })
 
   it('shows a parser error returned by the API', async () => {

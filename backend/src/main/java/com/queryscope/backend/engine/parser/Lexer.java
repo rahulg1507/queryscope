@@ -29,6 +29,7 @@ public class Lexer {
                 case ';' -> tokens.add(token(TokenType.SEMICOLON, ";", position));
                 case '(' -> tokens.add(token(TokenType.LPAREN, "(", position));
                 case ')' -> tokens.add(token(TokenType.RPAREN, ")", position));
+                case '.' -> tokens.add(token(TokenType.DOT, ".", position));
                 case '=' -> tokens.add(token(TokenType.EQUAL, "=", position));
                 case '!' -> tokens.add(readBangOperator(position));
                 case '<' -> tokens.add(readLessOperator(position));
@@ -95,6 +96,8 @@ public class Lexer {
         TokenType type = switch (normalized) {
             case "select" -> TokenType.SELECT;
             case "from" -> TokenType.FROM;
+            case "join" -> TokenType.JOIN;
+            case "on" -> TokenType.ON;
             case "where" -> TokenType.WHERE;
             case "true", "false" -> TokenType.BOOLEAN;
             default -> TokenType.IDENTIFIER;
