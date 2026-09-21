@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, BookOpen, CircleHelp, Layers3, Settings2 } from 'lucide-react'
 import { checkBackendHealth, type BackendStatus } from './api/health'
-import { executeQuery, parseQuery, ParseApiError, type JoinStrategy, type ParsedQuery, type QueryResult } from './api/query'
+import { createIndex, executeQuery, getSchema, parseQuery, ParseApiError, type JoinStrategy, type ParsedQuery, type QueryResult, type ScanStrategy, type SchemaResponse } from './api/query'
 import { BackendStatus as BackendStatusIndicator } from './components/BackendStatus'
 import { BrandMark } from './components/BrandMark'
 import { ExecutionErrorPanel } from './components/ExecutionErrorPanel'
@@ -11,6 +11,7 @@ import { ExecutionPlanPanel } from './components/ExecutionPlanPanel'
 import { PlaceholderPanel } from './components/PlaceholderPanel'
 import { QueryEditor } from './components/QueryEditor'
 import { ResultsPanel } from './components/ResultsPanel'
+import { SchemaIndexPanel } from './components/SchemaIndexPanel'
 import { StrategyComparisonPanel, type StrategyComparison } from './components/StrategyComparisonPanel'
 
 const starterQuery = 'SELECT name, age\nFROM users\nWHERE age > 18;'
@@ -37,6 +38,11 @@ function App() {
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
   const [executeError, setExecuteError] = useState('')
   const [joinStrategy, setJoinStrategy] = useState<JoinStrategy>('NESTED_LOOP')
+  const [scanStrategy, setScanStrategy] = useState<ScanStrategy>('TABLE')
+  const [schema, setSchema] = useState<SchemaResponse | null>(null)
+  const [schemaLoading, setSchemaLoading] = useState(true)
+  const [schemaError, setSchemaError] = useState('')
+  const [creatingIndex, setCreatingIndex] = useState(false)
   const [comparisonState, setComparisonState] = useState<ComparisonState>('idle')
   const [comparison, setComparison] = useState<StrategyComparison | null>(null)
   const [comparisonError, setComparisonError] = useState('')
@@ -48,6 +54,34 @@ function App() {
     })
     return () => controller.abort()
   }, [])
+
+  async function loadSchema() {
+    setSchemaLoading(true)
+    setSchemaError('')
+    try {
+      setSchema(await getSchema())
+    } catch (error) {
+      setSchemaError(error instanceof Error ? error.message : 'The schema could not be loaded.')
+    } finally {
+      setSchemaLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadSchema()
+  }, [])
+
+  async function handleCreateIndex(name: string, table: string, column: string) {
+    setCreatingIndex(true)
+    setSchemaError('')
+    try {
+      setSchema(await createIndex(name, table, column))
+    } catch (error) {
+      setSchemaError(error instanceof Error ? error.message : 'The index could not be created.')
+    } finally {
+      setCreatingIndex(false)
+    }
+  }
 
   async function handleParse() {
     setParseState('parsing')
@@ -84,7 +118,7 @@ function App() {
       parsed = true
       setParsedQuery(ast)
       setParseState('success')
-      setQueryResult(await executeQuery(query, joinStrategy))
+      setQueryResult(await executeQuery(query, joinStrategy, scanStrategy))
       setExecuteState('success')
     } catch (error) {
       if (!parsed) {
@@ -143,7 +177,7 @@ function App() {
             <h1>Query workspace</h1>
             <p className="intro-copy">Explore how QueryScope will parse, plan, and execute SQL.</p>
           </div>
-          <div className="version-badge"><span className="live-dot" /> MILESTONE 7 / 0.7</div>
+          <div className="version-badge"><span className="live-dot" /> MILESTONE 8 / 0.8</div>
         </div>
 
         <div className="notice-banner" role="note">
@@ -153,6 +187,14 @@ function App() {
         </div>
 
         <div className="workspace-grid">
+          <SchemaIndexPanel
+            schema={schema}
+            isLoading={schemaLoading}
+            error={schemaError}
+            isCreating={creatingIndex}
+            onRefresh={loadSchema}
+            onCreateIndex={handleCreateIndex}
+          />
           <QueryEditor
             query={query}
             onQueryChange={setQuery}
@@ -161,6 +203,8 @@ function App() {
             onExampleSelect={setQuery}
             joinStrategy={joinStrategy}
             onJoinStrategyChange={setJoinStrategy}
+            scanStrategy={scanStrategy}
+            onScanStrategyChange={setScanStrategy}
             onCompare={handleCompare}
             isParsing={parseState === 'parsing'}
             isExecuting={executeState === 'executing'}

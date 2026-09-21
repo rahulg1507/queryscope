@@ -1,6 +1,7 @@
 package com.queryscope.backend.engine.storage;
 
 import com.queryscope.backend.engine.execution.QueryExecutionException;
+import com.queryscope.backend.engine.index.TableIndex;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +40,20 @@ public final class Database {
 
     public synchronized List<String> tableNames() {
         return Collections.unmodifiableList(new ArrayList<>(tables.values().stream().map(Table::name).toList()));
+    }
+
+    public synchronized TableIndex createIndex(String indexName, String tableName, String columnName) {
+        String normalizedIndex = normalize(indexName);
+        for (Table existing : tables.values()) {
+            if (existing.indexes().stream().anyMatch(index -> index.name().equalsIgnoreCase(normalizedIndex))) {
+                throw new QueryExecutionException("Index '" + indexName + "' already exists.");
+            }
+        }
+        return requireTable(tableName).createIndex(indexName, columnName);
+    }
+
+    public synchronized List<TableIndex> indexes() {
+        return tables.values().stream().flatMap(table -> table.indexes().stream()).toList();
     }
 
     private static String normalize(String name) {

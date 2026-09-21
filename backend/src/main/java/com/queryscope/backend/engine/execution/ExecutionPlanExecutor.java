@@ -6,6 +6,7 @@ import com.queryscope.backend.engine.plan.AggregatePlan;
 import com.queryscope.backend.engine.plan.FilterPlan;
 import com.queryscope.backend.engine.plan.JoinPlan;
 import com.queryscope.backend.engine.plan.JoinStrategy;
+import com.queryscope.backend.engine.plan.IndexScanPlan;
 import com.queryscope.backend.engine.plan.ProjectionPlan;
 import com.queryscope.backend.engine.plan.TableScanPlan;
 import com.queryscope.backend.engine.storage.Database;
@@ -25,6 +26,9 @@ public final class ExecutionPlanExecutor {
     private QueryOperator operatorFor(ExecutionPlanNode node) {
         if (node instanceof TableScanPlan tableScan) {
             return new TableScanOperator(database, tableScan.table());
+        }
+        if (node instanceof IndexScanPlan indexScan) {
+            return new IndexScanOperator(database, indexScan.table(), indexScan.condition());
         }
         if (node instanceof FilterPlan filter) {
             return new FilterOperator(operatorFor(filter.child()), filter.condition(), filter.table());

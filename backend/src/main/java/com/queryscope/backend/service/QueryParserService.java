@@ -1,6 +1,7 @@
 package com.queryscope.backend.service;
 
 import com.queryscope.backend.engine.ast.SelectStatement;
+import com.queryscope.backend.engine.ast.SqlStatement;
 import com.queryscope.backend.engine.parser.Lexer;
 import com.queryscope.backend.engine.parser.Parser;
 import com.queryscope.backend.engine.parser.ParserException;
@@ -14,5 +15,12 @@ public class QueryParserService {
             throw new ParserException("SQL query must not be blank");
         }
         return new Parser(new Lexer(sql).tokenize()).parse();
+    }
+
+    public SqlStatement parseStatement(String sql) {
+        if (sql == null || sql.isBlank()) {
+            throw new ParserException("SQL statement must not be blank");
+        }
+        return new Parser(new Lexer(sql).tokenize()).parseStatement();
     }
 }

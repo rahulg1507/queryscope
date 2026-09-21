@@ -23,15 +23,22 @@ import java.util.List;
 public final class ExecutionPlanBuilder {
 
     public ExecutionPlan build(SelectStatement statement) {
-        return build(statement, JoinStrategy.NESTED_LOOP);
+        return build(statement, JoinStrategy.NESTED_LOOP, ScanStrategy.TABLE);
     }
 
     public ExecutionPlan build(SelectStatement statement, JoinStrategy joinStrategy) {
+        return build(statement, joinStrategy, ScanStrategy.TABLE);
+    }
+
+    public ExecutionPlan build(SelectStatement statement, JoinStrategy joinStrategy, ScanStrategy scanStrategy) {
         if (statement == null || statement.from() == null) {
             throw new QueryExecutionException("A SELECT statement requires a table.");
         }
         if (joinStrategy == null) {
             joinStrategy = JoinStrategy.NESTED_LOOP;
+        }
+        if (scanStrategy == null) {
+            scanStrategy = ScanStrategy.TABLE;
         }
         ExecutionPlanNode root;
         String sourceContext;
@@ -56,7 +63,17 @@ public final class ExecutionPlanBuilder {
             if (!(statement.where() instanceof ComparisonExpression comparison)) {
                 throw new QueryExecutionException("Unsupported WHERE expression.");
             }
-            root = new FilterPlan(sourceContext, toCondition(comparison), root);
+            FilterCondition condition = toCondition(comparison);
+            if (scanStrategy == ScanStrategy.INDEX) {
+                if (!(statement.from() instanceof com.queryscope.backend.engine.ast.TableReference table)) {
+                    throw new QueryExecutionException("Index scans are only supported for single-table WHERE predicates.");
+                }
+                root = new IndexScanPlan(table.name(), condition);
+            } else {
+                root = new FilterPlan(sourceContext, condition, root);
+            }
+        } else if (scanStrategy == ScanStrategy.INDEX) {
+            throw new QueryExecutionException("Index scan requires a WHERE equality or range predicate.");
         }
 
         boolean hasAggregate = statement.columns().stream().anyMatch(item -> item instanceof AggregateSelectItem);
@@ -146,13 +163,13 @@ public final class ExecutionPlanBuilder {
         }
         Expression right = comparison.right();
         if (right instanceof NumberLiteral number) {
-            return new FilterCondition(column.name(), toOperator(comparison.operator()), number.value(), DataType.INTEGER);
+            return new FilterCondition(column.qualifiedName(), toOperator(comparison.operator()), number.value(), DataType.INTEGER);
         }
         if (right instanceof StringLiteral string) {
-            return new FilterCondition(column.name(), toOperator(comparison.operator()), string.value(), DataType.STRING);
+            return new FilterCondition(column.qualifiedName(), toOperator(comparison.operator()), string.value(), DataType.STRING);
         }
         if (right instanceof BooleanLiteral bool) {
-            return new FilterCondition(column.name(), toOperator(comparison.operator()), bool.value(), DataType.BOOLEAN);
+            return new FilterCondition(column.qualifiedName(), toOperator(comparison.operator()), bool.value(), DataType.BOOLEAN);
         }
         throw new QueryExecutionException("WHERE conditions require a literal right-hand value.");
     }

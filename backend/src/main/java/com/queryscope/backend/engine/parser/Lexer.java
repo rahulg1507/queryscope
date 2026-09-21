@@ -95,6 +95,8 @@ public class Lexer {
         String normalized = lexeme.toLowerCase(Locale.ROOT);
         TokenType type = switch (normalized) {
             case "select" -> TokenType.SELECT;
+            case "create" -> TokenType.CREATE;
+            case "index" -> TokenType.INDEX;
             case "from" -> TokenType.FROM;
             case "join" -> TokenType.JOIN;
             case "on" -> TokenType.ON;

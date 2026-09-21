@@ -6,6 +6,8 @@ import com.queryscope.backend.engine.ast.AggregateExpression;
 import com.queryscope.backend.engine.ast.AggregateFunction;
 import com.queryscope.backend.engine.ast.AggregateSelectItem;
 import com.queryscope.backend.engine.ast.AggregateWildcardArgument;
+import com.queryscope.backend.engine.ast.CreateIndexStatement;
+import com.queryscope.backend.engine.ast.SqlStatement;
 import com.queryscope.backend.engine.ast.ColumnExpression;
 import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.ComparisonExpression;
@@ -69,6 +71,29 @@ public class Parser {
             throw error("Unexpected trailing token '" + peek().lexeme() + "'", peek());
         }
         return new SelectStatement(columns, source, where, groupBy);
+    }
+
+    public SqlStatement parseStatement() {
+        if (check(TokenType.CREATE)) {
+            return parseCreateIndex();
+        }
+        return parse();
+    }
+
+    private CreateIndexStatement parseCreateIndex() {
+        consume(TokenType.CREATE, "Expected CREATE at the start of the statement");
+        consume(TokenType.INDEX, "Expected INDEX after CREATE");
+        String indexName = consume(TokenType.IDENTIFIER, "Expected index identifier after CREATE INDEX").lexeme();
+        consume(TokenType.ON, "Expected ON after index identifier");
+        String tableName = consume(TokenType.IDENTIFIER, "Expected table identifier after ON").lexeme();
+        consume(TokenType.LPAREN, "Expected '(' before indexed column");
+        String columnName = consume(TokenType.IDENTIFIER, "Expected indexed column identifier").lexeme();
+        consume(TokenType.RPAREN, "Expected ')' after indexed column");
+        match(TokenType.SEMICOLON);
+        if (!check(TokenType.EOF)) {
+            throw error("Unexpected trailing token '" + peek().lexeme() + "'", peek());
+        }
+        return new CreateIndexStatement(indexName, tableName, columnName);
     }
 
     private List<SelectItem> parseSelectItems() {

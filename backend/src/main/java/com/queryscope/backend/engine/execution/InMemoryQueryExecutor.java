@@ -5,6 +5,7 @@ import com.queryscope.backend.engine.plan.ExecutionPlan;
 import com.queryscope.backend.engine.plan.ExecutionPlanBuilder;
 import com.queryscope.backend.engine.plan.ExecutionPlanNode;
 import com.queryscope.backend.engine.plan.JoinStrategy;
+import com.queryscope.backend.engine.plan.ScanStrategy;
 import com.queryscope.backend.engine.storage.Database;
 
 public final class InMemoryQueryExecutor implements QueryExecutor {
@@ -28,7 +29,12 @@ public final class InMemoryQueryExecutor implements QueryExecutor {
 
     @Override
     public QueryResult execute(SelectStatement statement, JoinStrategy joinStrategy) {
-        ExecutionPlan plan = planBuilder.build(statement, joinStrategy);
+        return execute(statement, joinStrategy, ScanStrategy.TABLE);
+    }
+
+    @Override
+    public QueryResult execute(SelectStatement statement, JoinStrategy joinStrategy, ScanStrategy scanStrategy) {
+        ExecutionPlan plan = planBuilder.build(statement, joinStrategy, scanStrategy);
         OperatorResult result = planExecutor.execute(plan);
         ExecutionPlanNode executedPlan = ExecutionPlanMetadata.attach(plan.root(), result.metrics());
         return QueryResult.from(result, executedPlan);

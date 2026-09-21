@@ -123,6 +123,33 @@ const aggregateResult = {
   },
 }
 
+const schemaResponse = {
+  tables: [
+    { name: 'users', columns: [{ name: 'id', type: 'INTEGER' }, { name: 'name', type: 'STRING' }, { name: 'age', type: 'INTEGER' }], indexes: [] },
+    { name: 'expenses', columns: [{ name: 'id', type: 'INTEGER' }, { name: 'amount', type: 'INTEGER' }], indexes: [] },
+  ],
+}
+
+const indexedSchemaResponse = {
+  tables: schemaResponse.tables.map((table) => table.name === 'expenses'
+    ? { ...table, indexes: [{ name: 'idx_amount', column: 'amount' }] }
+    : table),
+}
+
+const indexQueryResult = {
+  ...queryResult,
+  executionPlan: {
+    ...queryResult.executionPlan,
+    children: [{
+      type: 'INDEX_SCAN',
+      details: { table: 'users', index: 'idx_age', column: 'age', predicate: 'age > 18', indexLookups: 1, leafEntriesVisited: 2, rowsExamined: 3, rowsReturned: 3 },
+      inputRows: 3,
+      outputRows: 3,
+      children: [],
+    }],
+  },
+}
+
 function healthyFetch(
   parseResponse: Response | Error | Promise<Response> = jsonResponse(parsedAst),
   executeResponse: Response | Error | Promise<Response> = jsonResponse(queryResult),
@@ -130,6 +157,8 @@ function healthyFetch(
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const path = input.toString()
     if (path === '/api/health') return jsonResponse({ status: 'ok' })
+    if (path === '/api/schema') return jsonResponse(schemaResponse)
+    if (path === '/api/schema/indexes') return jsonResponse(schemaResponse)
     const response = path.endsWith('/parse') ? parseResponse : executeResponse
     if (response instanceof Error) throw response
     return response
@@ -148,10 +177,38 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Parse' }))
 
     await waitFor(() => expect(screen.getByText('PARSE SUCCESS')).toBeInTheDocument())
-    expect(screen.getByText('users')).toBeInTheDocument()
+    expect(screen.getAllByText('users').length).toBeGreaterThan(0)
     expect(screen.getByText('GREATER_THAN')).toBeInTheDocument()
     const parseCall = fetchMock.mock.calls.find(([input]) => input.toString() === '/api/query/parse')
     expect(parseCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }))
+  })
+
+  it('shows schema indexes, creates an index, and runs an index scan explicitly', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const path = input.toString()
+      if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path === '/api/schema') return jsonResponse(schemaResponse)
+      if (path === '/api/schema/indexes') return jsonResponse(indexedSchemaResponse)
+      if (path.endsWith('/parse')) return jsonResponse(parsedAst)
+      const body = JSON.parse(String(init?.body ?? '{}')) as { scanStrategy?: string }
+      return jsonResponse(body.scanStrategy === 'INDEX' ? indexQueryResult : queryResult)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getAllByText('expenses').length).toBeGreaterThan(0))
+    await user.type(screen.getByLabelText('Index name'), 'idx_amount')
+    await user.click(screen.getByRole('button', { name: 'Create index' }))
+    await waitFor(() => expect(screen.getByText('idx_amount')).toBeInTheDocument())
+    const createCall = fetchMock.mock.calls.find(([input]) => input.toString() === '/api/schema/indexes')
+    expect(createCall?.[1]?.body).toContain('idx_amount')
+
+    const scanStrategy = screen.getByLabelText('Scan strategy')
+    expect(scanStrategy).toBeEnabled()
+    await user.selectOptions(scanStrategy, 'INDEX')
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByText('INDEX SCAN')).toBeInTheDocument())
+    expect(screen.getByText('idx_age')).toBeInTheDocument()
   })
 
   it('runs the query and renders rows and execution metrics', async () => {
@@ -193,6 +250,7 @@ describe('App', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const path = input.toString()
       if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path === '/api/schema') return jsonResponse(schemaResponse)
       if (path.endsWith('/parse')) return jsonResponse(parsedAst)
       const body = JSON.parse(String(init?.body ?? '{}')) as { joinStrategy?: string }
       return jsonResponse(body.joinStrategy === 'HASH' ? hashJoinResult : joinResult)
@@ -259,6 +317,7 @@ describe('App', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const path = input.toString()
       if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path === '/api/schema') return jsonResponse(schemaResponse)
       if (path.endsWith('/parse')) return jsonResponse(parsedAst)
       executeCalls += 1
       return executeCalls === 1

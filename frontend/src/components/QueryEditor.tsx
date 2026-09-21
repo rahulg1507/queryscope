@@ -1,5 +1,5 @@
 import { Code2, GitCompare, Play } from 'lucide-react'
-import type { JoinStrategy } from '../api/query'
+import type { JoinStrategy, ScanStrategy } from '../api/query'
 
 type QueryEditorProps = {
   query: string
@@ -9,6 +9,8 @@ type QueryEditorProps = {
   onExampleSelect: (query: string) => void
   joinStrategy: JoinStrategy
   onJoinStrategyChange: (strategy: JoinStrategy) => void
+  scanStrategy: ScanStrategy
+  onScanStrategyChange: (strategy: ScanStrategy) => void
   onCompare: () => void | Promise<void>
   isParsing: boolean
   isExecuting: boolean
@@ -26,9 +28,10 @@ const examples = [
   'SELECT user_id, AVG(amount)\nFROM expenses\nGROUP BY user_id;',
 ]
 
-export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
+export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, scanStrategy, onScanStrategyChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
   const isBusy = isParsing || isExecuting || isComparing
   const hasJoin = /\bjoin\b/i.test(query)
+  const hasWhere = /\bwhere\b/i.test(query)
 
   return (
     <section className="workspace-card editor-card" aria-labelledby="query-editor-title">
@@ -76,6 +79,19 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSel
           <GitCompare size={14} />
           {isComparing ? 'Comparing…' : 'Compare strategies'}
         </button>
+      </div>
+      <div className="strategy-controls scan-controls">
+        <label htmlFor="scan-strategy">Scan strategy</label>
+        <select
+          id="scan-strategy"
+          value={scanStrategy}
+          onChange={(event) => onScanStrategyChange(event.target.value as ScanStrategy)}
+          disabled={!hasWhere || isBusy}
+        >
+          <option value="TABLE">Table Scan</option>
+          <option value="INDEX">Index Scan</option>
+        </select>
+        <span>{hasWhere ? 'Index scans require a matching single-column index.' : 'Add a WHERE predicate to choose an index scan.'}</span>
       </div>
       <div className="examples-row" aria-label="Example queries">
         <span>EXAMPLES</span>

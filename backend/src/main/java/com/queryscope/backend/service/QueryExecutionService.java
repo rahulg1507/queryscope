@@ -4,6 +4,7 @@ import com.queryscope.backend.engine.ast.SelectStatement;
 import com.queryscope.backend.engine.execution.QueryExecutor;
 import com.queryscope.backend.engine.execution.QueryResult;
 import com.queryscope.backend.engine.plan.JoinStrategy;
+import com.queryscope.backend.engine.plan.ScanStrategy;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,7 +23,11 @@ public class QueryExecutionService {
     }
 
     public QueryResult execute(String sql, JoinStrategy joinStrategy) {
+        return execute(sql, joinStrategy, ScanStrategy.TABLE);
+    }
+
+    public QueryResult execute(String sql, JoinStrategy joinStrategy, ScanStrategy scanStrategy) {
         SelectStatement statement = queryParserService.parse(sql);
-        return queryExecutor.execute(statement, joinStrategy);
+        return queryExecutor.execute(statement, joinStrategy, scanStrategy);
     }
 }

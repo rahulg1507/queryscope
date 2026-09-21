@@ -47,6 +47,25 @@ h1 { color: #f0f6ff; font-size: clamp(30px, 4vw, 43px); line-height: 1.1; letter
 .notice-banner a { display: flex; align-items: center; gap: 4px; margin-left: auto; color: #67aefc; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .workspace-grid { margin-top: 22px; }
 .workspace-card { border: 1px solid #243850; border-radius: 8px; background: linear-gradient(145deg, rgba(17, 31, 51, .9), rgba(11, 22, 37, .9)); box-shadow: 0 12px 40px rgba(0,0,0,.13); }
+.schema-card { padding: 20px 25px; }
+.schema-refresh { width: 29px; height: 29px; }
+.schema-layout { display: grid; grid-template-columns: minmax(0, 1fr) 235px; gap: 18px; margin-top: 17px; }
+.schema-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.schema-table { padding: 12px; border: 1px solid #213b59; border-radius: 5px; background: #091523; }
+.schema-table-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; color: #d3e5fb; font: 12px 'DM Mono', monospace; }
+.schema-table-heading span, .schema-muted { color: #6f87a2; font: 10px 'DM Mono', monospace; }
+.schema-columns { display: grid; gap: 5px; margin-top: 10px; }
+.schema-columns span { display: flex; justify-content: space-between; gap: 10px; color: #b5cce7; font: 10px 'DM Mono', monospace; }
+.schema-columns small, .schema-index small { color: #6d8aaa; }
+.schema-indexes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; padding-top: 9px; border-top: 1px solid #1b3049; font: 10px 'DM Mono', monospace; }
+.schema-label { color: #5f84a8; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; }
+.schema-index { padding: 3px 5px; border: 1px solid #2d5e77; border-radius: 3px; color: #7bd3b0; background: #0e2b31; }
+.schema-error { margin: 12px 0 0; color: #f0aab2; font: 11px/1.5 'DM Mono', monospace; }
+.index-form { display: grid; align-content: start; gap: 7px; padding: 12px; border: 1px solid #213b59; border-radius: 5px; background: #0b1929; }
+.index-form label { margin-top: 3px; color: #8ca8c5; font: 10px 'DM Mono', monospace; }
+.index-form input, .index-form select { width: 100%; padding: 7px 8px; outline: none; border: 1px solid #315071; border-radius: 4px; color: #c5dcf5; background: #091523; font: 10px 'DM Mono', monospace; }
+.index-form input:focus, .index-form select:focus { border-color: #438be0; }
+.index-form button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 5px; }
 .editor-card { padding: 25px 28px 20px; }
 .card-heading { display: flex; align-items: start; justify-content: space-between; margin-bottom: 19px; }
 .eyebrow { display: flex; align-items: center; gap: 7px; color: #7f9bbd; }
@@ -119,10 +138,12 @@ tbody tr:last-child td { border-bottom: 0; }
 .plan-node { width: min(100%, 330px); padding: 13px 14px; border: 1px solid #2c527a; border-radius: 7px; background: linear-gradient(145deg, #102a45, #0c1b2d); box-shadow: 0 8px 18px rgba(0, 0, 0, .14); }
 .plan-node-filter { border-color: #53628c; background: linear-gradient(145deg, #1a2945, #101c32); }
 .plan-node-table_scan { border-color: #356d70; background: linear-gradient(145deg, #102f38, #0c202b); }
+.plan-node-index_scan { border-color: #3b7f76; background: linear-gradient(145deg, #123b3d, #0c242d); }
 .plan-node-heading { display: flex; align-items: center; gap: 8px; color: #e2efff; font: 700 12px 'DM Mono', monospace; text-transform: uppercase; }
 .plan-node-icon { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 5px; color: #7cc2ff; background: rgba(61, 139, 218, .18); }
 .plan-node-filter .plan-node-icon { color: #b5baff; background: rgba(115, 117, 205, .18); }
 .plan-node-table_scan .plan-node-icon { color: #70dfc0; background: rgba(62, 178, 150, .16); }
+.plan-node-index_scan .plan-node-icon { color: #71e0bf; background: rgba(62, 178, 150, .16); }
 .plan-details { display: grid; gap: 4px; margin-top: 11px; padding-top: 9px; border-top: 1px solid rgba(132, 178, 224, .16); font: 10px 'DM Mono', monospace; }
 .plan-detail { display: flex; justify-content: space-between; gap: 12px; color: #7893b0; }
 .plan-detail strong { overflow: hidden; color: #c6dcf5; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -165,6 +186,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .editor-footer { align-items: flex-start; flex-direction: column; }
   .editor-actions { width: 100%; }
   .editor-actions button { flex: 1; }
+  .schema-layout { grid-template-columns: 1fr; }
   .compare-button { width: 100%; justify-content: center; margin-left: 0; }
   .bottom-panels { grid-template-columns: 1fr; }
   .plan-node { width: 100%; }

@@ -4,6 +4,7 @@ import com.queryscope.backend.dto.ParseQueryRequest;
 import com.queryscope.backend.engine.ast.SelectStatement;
 import com.queryscope.backend.engine.execution.QueryResult;
 import com.queryscope.backend.engine.plan.JoinStrategy;
+import com.queryscope.backend.engine.plan.ScanStrategy;
 import com.queryscope.backend.service.QueryExecutionService;
 import com.queryscope.backend.service.QueryParserService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,7 +33,8 @@ public class QueryController {
     public QueryResult execute(@RequestBody ParseQueryRequest request) {
         return queryExecutionService.execute(
                 request == null ? null : request.sql(),
-                JoinStrategy.from(request == null ? null : request.joinStrategy())
+                JoinStrategy.from(request == null ? null : request.joinStrategy()),
+                ScanStrategy.from(request == null ? null : request.scanStrategy())
         );
     }
 }

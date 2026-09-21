@@ -2,6 +2,8 @@ package com.queryscope.backend.engine.parser;
 
 public enum TokenType {
     SELECT,
+    CREATE,
+    INDEX,
     FROM,
     JOIN,
     ON,

@@ -1,5 +1,6 @@
 export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
 export type JoinStrategy = 'NESTED_LOOP' | 'HASH'
+export type ScanStrategy = 'TABLE' | 'INDEX'
 
 export class ParseApiError extends Error {
   readonly kind: QueryApiErrorKind
@@ -35,12 +36,12 @@ export type ExecutionPlanNode = {
   children: ExecutionPlanNode[]
 }
 
-async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', joinStrategy?: JoinStrategy) {
+async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', options?: { joinStrategy?: JoinStrategy; scanStrategy?: ScanStrategy }) {
   try {
     const response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(joinStrategy ? { sql, joinStrategy } : { sql }),
+      body: JSON.stringify({ sql, ...options }),
     })
     const payload = (await response.json().catch(() => null)) as { error?: string } | null
     if (!response.ok) {
@@ -57,6 +58,35 @@ export async function parseQuery(sql: string): Promise<ParsedQuery> {
   return await postSql('/api/query/parse', sql, 'parser') as ParsedQuery
 }
 
-export async function executeQuery(sql: string, joinStrategy: JoinStrategy = 'NESTED_LOOP'): Promise<QueryResult> {
-  return await postSql('/api/query/execute', sql, 'execution', joinStrategy) as QueryResult
+export async function executeQuery(sql: string, joinStrategy: JoinStrategy = 'NESTED_LOOP', scanStrategy: ScanStrategy = 'TABLE'): Promise<QueryResult> {
+  return await postSql('/api/query/execute', sql, 'execution', { joinStrategy, scanStrategy }) as QueryResult
+}
+
+export type SchemaColumn = { name: string; type: string }
+export type SchemaIndex = { name: string; column: string }
+export type SchemaTable = { name: string; columns: SchemaColumn[]; indexes: SchemaIndex[] }
+export type SchemaResponse = { tables: SchemaTable[] }
+
+async function schemaRequest(path: string, init?: RequestInit): Promise<SchemaResponse> {
+  try {
+    const response = await fetch(path, init)
+    const payload = (await response.json().catch(() => null)) as SchemaResponse & { error?: string } | null
+    if (!response.ok) throw new ParseApiError(payload?.error ?? 'The schema request failed.', 'execution')
+    return payload as SchemaResponse
+  } catch (error) {
+    if (error instanceof ParseApiError) throw error
+    throw new ParseApiError('Backend unavailable. Make sure the QueryScope API is running.', 'backend')
+  }
+}
+
+export async function getSchema(): Promise<SchemaResponse> {
+  return schemaRequest('/api/schema')
+}
+
+export async function createIndex(name: string, table: string, column: string): Promise<SchemaResponse> {
+  return schemaRequest('/api/schema/indexes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, table, column }),
+  })
 }

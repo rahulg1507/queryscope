@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -133,5 +134,43 @@ class QueryExecutionControllerTest {
                         .content("{\"sql\":\"SELECT name, SUM(amount) FROM expenses GROUP BY user_id\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Column 'name' must appear in GROUP BY or be aggregated."));
+    }
+
+    @Test
+    void exposesSchemaCreatesIndexAndExecutesIndexScan() throws Exception {
+        mockMvc.perform(get("/api/schema"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tables[0].name").value("users"))
+                .andExpect(jsonPath("$.tables[1].columns").isArray());
+
+        mockMvc.perform(post("/api/schema/indexes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"idx_api_amount\",\"table\":\"expenses\",\"column\":\"amount\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tables[1].indexes[0].name").value("idx_api_amount"))
+                .andExpect(jsonPath("$.tables[1].indexes[0].column").value("amount"));
+
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT description FROM expenses WHERE amount = 300\",\"scanStrategy\":\"INDEX\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows[0][0]").value("Hotel"))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("INDEX_SCAN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.index").value("idx_api_amount"));
+    }
+
+    @Test
+    void rejectsUnknownScanStrategyAndMissingUsableIndex() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT * FROM users WHERE age = 19\",\"scanStrategy\":\"INDEX\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("No usable index exists for predicate 'age = 19'."));
+
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT * FROM users\",\"scanStrategy\":\"BITMAP\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid scan strategy 'BITMAP'. Supported strategies: TABLE, INDEX."));
     }
 }
