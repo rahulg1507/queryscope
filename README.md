@@ -82,8 +82,9 @@ npm run build
 - A hand-built order-4 B+ tree indexes integer and string columns. Indexes are populated from existing rows and maintained for later inserts. Exact and inclusive/exclusive range lookups return row positions, including duplicate keys.
 - Scan strategy is selected explicitly per execution with `TABLE` (the default) or `INDEX`; QueryScope does not optimize or automatically choose an index. An index scan requires a matching single-column index and a `WHERE` equality/range predicate.
 - `GET /api/schema` exposes tables, columns, and indexes. `POST /api/schema/indexes` accepts `{ "name": "idx_amount", "table": "expenses", "column": "amount" }` and creates an index.
-- The rule-based optimizer runs in `AUTO` mode by default. It prefers an existing matching index for eligible single-table predicates, chooses hash joins for equality joins over supported key types, and falls back deterministically to table scans or nested-loop joins.
+- The cost-based optimizer runs in `AUTO` mode by default. It builds table/column/index statistics, estimates cardinalities, compares deterministic abstract costs for eligible scans and joins, and selects the lowest-cost candidate with stable tie-breaking.
 - `MANUAL` mode preserves the requested `TABLE`/`INDEX` and `NESTED_LOOP`/`HASH` strategies. Every execution returns structured optimizer metadata with the original plan, optimized physical plan, applied rule IDs, decisions, and reasons.
+- `GET /api/statistics` exposes the current row count, per-column distinct values and numeric min/max values, plus index distinct keys and indexed rows. Statistics are refreshed into one consistent snapshot for each optimization request.
 - The frontend can parse SQL to inspect its AST or run it to display result rows, execution metrics, and the generated plan.
 
 ## Execution plan architecture
@@ -97,7 +98,7 @@ ExecutionPlanBuilder
  ↓
 Initial logical plan
  ↓
-Rule-based optimizer
+Cost-based optimizer
  ↓
 Physical ExecutionPlan
  ↓
@@ -106,7 +107,9 @@ ExecutionPlanExecutor
 QueryResult + executionPlan
 ```
 
-The optimizer applies rules in this order: validate the initial plan, optimize child scans, choose an eligible join strategy, optimize aggregate children, then preserve filter and projection semantics. It does not push predicates down, reorder joins, create indexes, estimate cardinality, or measure wall-clock time.
+The optimizer recursively optimizes child nodes, generates eligible table/index scan and nested-loop/hash join candidates, estimates rows, and chooses the lowest abstract cost. A table scan costs one unit per input row; an index scan costs lookup plus logarithmic traversal plus fetched rows; filters, projections, joins, and aggregates add fixed per-row work. These are educational work units, not wall-clock timings. Ties prefer `INDEX_SCAN` over `TABLE_SCAN` and `HASH_JOIN` over `NESTED_LOOP_JOIN`.
+
+Cardinality uses equality selectivity `1 / distinctValues`, a uniform-distribution assumption between numeric min/max for range predicates, and the join approximation `(leftRows × rightRows) / max(leftDistinct, rightDistinct)`. Missing statistics use centralized fallback selectivities of `0.25` for filters and `0.10` for joins. This is an educational/experimental cost model, not a production-grade optimizer; estimated rows and cost are separate from actual execution metrics such as rows scanned, comparisons, and hash lookups.
 
 For an `AUTO` query with a matching index, the physical plan is:
 
@@ -178,7 +181,15 @@ Example optimizer response fragment:
         "decision": "USE_INDEX_SCAN",
         "reason": "Index idx_amount exists on expenses.amount and supports predicate amount = 300."
       }
-    ]
+    ],
+    "candidates": [
+      { "planType": "TABLE_SCAN", "estimatedRows": 2, "estimatedCost": 2.5 },
+      { "planType": "INDEX_SCAN", "estimatedRows": 1, "estimatedCost": 2.25 }
+    ],
+    "selectedPlan": "INDEX_SCAN",
+    "estimatedRows": 1,
+    "estimatedCost": 2.25,
+    "selectionReason": "Selected INDEX_SCAN because its estimated cost is 2.25 versus TABLE_SCAN at 2.50."
   }
 }
 ```
@@ -221,10 +232,12 @@ Example AST response:
 - `POST /api/query/execute` accepts `{ "sql": "...", "mode": "AUTO" | "MANUAL", "joinStrategy": "NESTED_LOOP" | "HASH", "scanStrategy": "TABLE" | "INDEX" }` and returns result data, the optimized `executionPlan`, and `optimization` metadata. `mode` defaults to `AUTO`; strategy fields are case-insensitive.
 - The same settings can be supplied under an `execution` object, for example `{ "sql": "...", "execution": { "mode": "MANUAL", "joinStrategy": "HASH", "scanStrategy": "TABLE" } }`. In `AUTO`, explicit strategy fields are ignored; in `MANUAL`, they are honored.
 - `optimization.rulesApplied` contains structured `{ "rule", "decision", "reason" }` entries. It can include `MATCHING_INDEX`, `NO_MATCHING_INDEX`, `EQUALITY_JOIN`, `HASH_JOIN_FALLBACK`, or `MANUAL_STRATEGIES`.
+- `optimization.candidates` lists candidate physical plan types with estimated rows and deterministic abstract costs. `selectedPlan`, `estimatedRows`, `estimatedCost`, and `selectionReason` explain the choice. Manual mode leaves candidates empty and preserves the requested physical strategy.
+- `GET /api/statistics` returns current table row counts, column distinct values and numeric min/max values, and index distinct-key/indexed-row counts.
 - `GET /api/schema` returns `{ "tables": [{ "name": "expenses", "columns": [{ "name": "amount", "type": "INTEGER" }], "indexes": [{ "name": "idx_amount", "column": "amount" }] }] }`.
 - `POST /api/schema/indexes` accepts `{ "name": "idx_amount", "table": "expenses", "column": "amount" }` and returns the updated schema. Indexes currently support one INTEGER or STRING column per index.
 - Aggregate queries use the same execute endpoint and return deterministic result column names such as `SUM(amount)` and `AVG(amount)`. Aggregate plan details include `groupBy`, `functions`, `groups`, `inputRows`, and `outputRows`.
-- On non-join queries, `joinStrategy` has no effect. In `AUTO`, scan selection is rule-based; in `MANUAL`, table scans, filters, and projections honor the selected scan strategy.
+- On non-join queries, `joinStrategy` has no effect. In `AUTO`, scan selection is cost-based; in `MANUAL`, table scans, filters, and projections honor the selected scan strategy.
 - The execute response also includes `executionPlan`, a recursive tree whose nodes expose `type`, operator-specific `details`, `inputRows`, `outputRows`, and `children`.
 - Invalid SQL returns HTTP 400 with `{ "error": "..." }`.
 
@@ -241,8 +254,8 @@ The current demo database supports schema inspection and index creation, but rem
 7. ~~GROUP BY and aggregates~~
 8. ~~B+ tree indexes and index scans~~
 9. ~~Rule-based query optimizer~~
-10. Cost-based optimization
+10. ~~Table statistics, cardinality estimation, and cost-based optimization~~
 11. Benchmarking
 12. Visualization
 
-The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, `HAVING`, `ORDER BY`, `LIMIT`, `MIN`, `MAX`, `DISTINCT`, window functions, `NULL` semantics, mutations, composite/unique/partial/expression indexes, `DROP INDEX`, persistence, and cost/timing estimates. QueryScope does not yet use a cost model. Future optimizer work includes statistics, cardinality estimation, selectivity estimation, cost-based plan selection, join reordering, and predicate pushdown.
+The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, `HAVING`, `ORDER BY`, `LIMIT`, `MIN`, `MAX`, `DISTINCT`, window functions, `NULL` semantics, mutations, composite/unique/partial/expression indexes, `DROP INDEX`, persistence, and learned or calibrated cost estimates. Future optimizer work includes join reordering, predicate pushdown, richer statistics, and benchmark calibration.

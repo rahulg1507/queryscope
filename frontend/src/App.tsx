@@ -179,7 +179,7 @@ function App() {
             <h1>Query workspace</h1>
             <p className="intro-copy">Explore how QueryScope will parse, plan, and execute SQL.</p>
           </div>
-          <div className="version-badge"><span className="live-dot" /> MILESTONE 8 / 0.8</div>
+          <div className="version-badge"><span className="live-dot" /> MILESTONE 10 / 1.0</div>
         </div>
 
         <div className="notice-banner" role="note">

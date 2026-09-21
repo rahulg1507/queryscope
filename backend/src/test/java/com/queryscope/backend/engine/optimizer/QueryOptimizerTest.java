@@ -58,7 +58,7 @@ class QueryOptimizerTest {
                 JoinStrategy.NESTED_LOOP, ScanStrategy.TABLE);
 
         assertThat(exact.executionPlan().children().get(0).type()).isEqualTo("INDEX_SCAN");
-        assertThat(range.executionPlan().children().get(0).type()).isEqualTo("INDEX_SCAN");
+        assertThat(range.executionPlan().children().get(0).type()).isEqualTo("FILTER");
         assertThat(exact.optimization().mode()).isEqualTo("AUTO");
         assertThat(exact.optimization().rulesApplied()).anyMatch(trace -> trace.rule().equals("MATCHING_INDEX"));
         assertThat(exact.optimization().rulesApplied().get(0).decision()).isEqualTo("USE_INDEX_SCAN");
@@ -108,6 +108,34 @@ class QueryOptimizerTest {
 
         assertThat(result.executionPlan().children().get(0).type()).isEqualTo("NESTED_LOOP_JOIN");
         assertThat(result.optimization().rulesApplied()).anyMatch(trace -> trace.rule().equals("HASH_JOIN_FALLBACK"));
+    }
+
+    @Test
+    void selectsTableScanForNonSelectiveIndexedPredicateAndNestedLoopForTinyJoin() {
+        database.createIndex("idx_amount", "expenses", "amount");
+        QueryResult broad = execute("SELECT amount FROM expenses WHERE amount > 50", ExecutionMode.AUTO,
+                JoinStrategy.NESTED_LOOP, ScanStrategy.TABLE);
+
+        assertThat(broad.executionPlan().children().get(0).type()).isEqualTo("FILTER");
+        assertThat(broad.optimization().candidates()).extracting(candidate -> candidate.planType())
+                .containsExactly("TABLE_SCAN", "INDEX_SCAN");
+        assertThat(broad.optimization().selectedPlan()).isEqualTo("TABLE_SCAN");
+
+        Table left = new Table("tiny_left", new TableSchema(List.of(new ColumnDefinition("key", DataType.INTEGER))));
+        Table right = new Table("tiny_right", new TableSchema(List.of(new ColumnDefinition("key", DataType.INTEGER))));
+        left.insert(Map.of("key", 1));
+        right.insert(Map.of("key", 1));
+        database.createTable(left);
+        database.createTable(right);
+
+        QueryResult tinyJoin = execute(
+                "SELECT tiny_left.key, tiny_right.key FROM tiny_left JOIN tiny_right ON tiny_left.key = tiny_right.key",
+                ExecutionMode.AUTO, JoinStrategy.HASH, ScanStrategy.TABLE);
+
+        assertThat(tinyJoin.executionPlan().children().get(0).type()).isEqualTo("NESTED_LOOP_JOIN");
+        assertThat(tinyJoin.optimization().candidates()).extracting(candidate -> candidate.planType())
+                .containsExactly("NESTED_LOOP_JOIN", "HASH_JOIN");
+        assertThat(tinyJoin.optimization().selectedPlan()).isEqualTo("NESTED_LOOP_JOIN");
     }
 
     private QueryResult execute(String sql, ExecutionMode mode, JoinStrategy joinStrategy, ScanStrategy scanStrategy) {

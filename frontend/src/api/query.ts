@@ -31,11 +31,17 @@ export type QueryResult = {
 }
 
 export type OptimizationTrace = { rule: string; decision: string; reason: string }
+export type OptimizerCandidate = { planType: string; estimatedRows: number; estimatedCost: number }
 export type OptimizationInfo = {
   mode: ExecutionMode
   originalPlan: ExecutionPlanNode
   optimizedPlan: ExecutionPlanNode
   rulesApplied: OptimizationTrace[]
+  candidates: OptimizerCandidate[]
+  selectedPlan: string
+  estimatedRows?: number | null
+  estimatedCost?: number | null
+  selectionReason?: string | null
 }
 
 export type ExecutionPlanNode = {
@@ -77,6 +83,11 @@ export type SchemaIndex = { name: string; column: string }
 export type SchemaTable = { name: string; columns: SchemaColumn[]; indexes: SchemaIndex[] }
 export type SchemaResponse = { tables: SchemaTable[] }
 
+export type StatisticsColumn = { name: string; type: string; distinctValues: number; min: unknown; max: unknown }
+export type StatisticsIndex = { name: string; column: string; distinctKeys: number; indexedRows: number }
+export type StatisticsTable = { name: string; rowCount: number; columns: StatisticsColumn[]; indexes: StatisticsIndex[] }
+export type StatisticsResponse = { tables: StatisticsTable[] }
+
 async function schemaRequest(path: string, init?: RequestInit): Promise<SchemaResponse> {
   try {
     const response = await fetch(path, init)
@@ -99,4 +110,8 @@ export async function createIndex(name: string, table: string, column: string): 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, table, column }),
   })
+}
+
+export async function getStatistics(): Promise<StatisticsResponse> {
+  return schemaRequest('/api/statistics') as Promise<StatisticsResponse>
 }

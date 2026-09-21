@@ -190,6 +190,22 @@ class QueryExecutionControllerTest {
     }
 
     @Test
+    void exposesStatisticsAndCostCandidates() throws Exception {
+        mockMvc.perform(get("/api/statistics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tables[0].rowCount").value(4))
+                .andExpect(jsonPath("$..name").value(org.hamcrest.Matchers.hasItem("amount")));
+
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT name FROM users WHERE age > 18\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.optimization.selectedPlan").value("TABLE_SCAN"))
+                .andExpect(jsonPath("$.optimization.estimatedCost").isNumber())
+                .andExpect(jsonPath("$.optimization.candidates[0].planType").value("TABLE_SCAN"));
+    }
+
+    @Test
     void rejectsUnknownScanStrategyAndMissingUsableIndex() throws Exception {
         mockMvc.perform(post("/api/query/execute")
                         .contentType(MediaType.APPLICATION_JSON)
