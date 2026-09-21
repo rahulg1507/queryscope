@@ -176,6 +176,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .candidate-card strong { color: #b9d8f5; text-transform: uppercase; }
 .candidate-card span { color: #718aa5; }
 .selection-reason { margin: 0; font: 10px/1.5 'DM Mono', monospace; }
+.benchmark-card { grid-column: 1 / -1; padding: 23px 25px; }
+.benchmark-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 17px; padding: 11px; border: 1px solid #213b59; border-radius: 5px; background: #0b1929; color: #9bb7d6; font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.benchmark-controls select { padding: 7px 9px; border: 1px solid #365273; border-radius: 5px; color: #bad8ff; background: #0d1b2c; font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.benchmark-run { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.benchmark-placeholder, .benchmark-error, .benchmark-muted, .benchmark-explanation { margin-top: 13px; color: #718aa5; font: 10px/1.6 'DM Mono', monospace; }
+.benchmark-error { color: #e4aab0; }
+.benchmark-results { display: grid; gap: 11px; margin-top: 15px; }
+.benchmark-summary { display: flex; justify-content: space-between; gap: 12px; color: #72c5ad; font: 500 10px 'DM Mono', monospace; text-transform: uppercase; }
+.benchmark-comparisons { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 9px; }
+.benchmark-result-card, .benchmark-optimizer { display: grid; gap: 6px; padding: 11px; border: 1px solid #23465e; border-radius: 5px; background: #0b1d2b; font: 10px 'DM Mono', monospace; }
+.benchmark-result-card strong { color: #b9d8f5; text-transform: uppercase; }
+.benchmark-result-card span { color: #718aa5; }
+.benchmark-result-card b { color: #d2e6fa; font-weight: 500; }
+.benchmark-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; margin-top: 7px; }
+.benchmark-candidate { display: grid; gap: 4px; padding: 8px; border: 1px solid #263b51; border-radius: 4px; font: 10px 'DM Mono', monospace; }
+.benchmark-candidate.selected { border-color: #67d8a2; background: rgba(103, 216, 162, .07); }
+.benchmark-candidate strong { color: #b9d8f5; text-transform: uppercase; }
+.benchmark-candidate span { color: #718aa5; }
 .comparison-placeholder { display: flex; min-height: 120px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .comparison-placeholder h2 { margin: 0; font-size: 14px; }
 .comparison-placeholder p { max-width: 420px; margin-top: 8px; color: #647b96; font-size: 11px; line-height: 1.6; }

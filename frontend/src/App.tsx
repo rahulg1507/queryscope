@@ -14,6 +14,7 @@ import { ResultsPanel } from './components/ResultsPanel'
 import { SchemaIndexPanel } from './components/SchemaIndexPanel'
 import { OptimizerPanel } from './components/OptimizerPanel'
 import { StrategyComparisonPanel, type StrategyComparison } from './components/StrategyComparisonPanel'
+import { BenchmarkPanel } from './components/BenchmarkPanel'
 
 const starterQuery = 'SELECT name, age\nFROM users\nWHERE age > 18;'
 type ParseState = 'idle' | 'parsing' | 'success' | 'parser-error' | 'backend-unavailable'
@@ -230,6 +231,7 @@ function App() {
             <ExecutionPlanPanel plan={queryResult?.executionPlan ?? null} isExecuting={executeState === 'executing'} />
             <OptimizerPanel optimization={queryResult?.optimization} />
             <StrategyComparisonPanel comparison={comparison} error={comparisonError} isComparing={comparisonState === 'comparing'} />
+            <BenchmarkPanel />
           </div>
         </div>
       </main>
