@@ -197,6 +197,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => expect(screen.getAllByText('expenses').length).toBeGreaterThan(0))
+    expect(screen.queryByText('Not Found')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('Index name'), 'idx_amount')
     await user.click(screen.getByRole('button', { name: 'Create index' }))
     await waitFor(() => expect(screen.getByText('idx_amount')).toBeInTheDocument())
@@ -209,6 +210,19 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Run query' }))
     await waitFor(() => expect(screen.getByText('INDEX SCAN')).toBeInTheDocument())
     expect(screen.getByText('idx_age')).toBeInTheDocument()
+  })
+
+  it('shows a catalog error when the schema endpoint is unavailable', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const path = input.toString()
+      if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path === '/api/schema') return jsonResponse({ error: 'Not Found' }, 404)
+      if (path.endsWith('/parse')) return jsonResponse(parsedAst)
+      return jsonResponse(queryResult)
+    })
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Not Found'))
   })
 
   it('runs the query and renders rows and execution metrics', async () => {
