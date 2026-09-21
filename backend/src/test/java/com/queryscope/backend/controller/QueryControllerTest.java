@@ -4,6 +4,7 @@ import com.queryscope.backend.engine.ast.ColumnSelectItem;
 import com.queryscope.backend.engine.ast.SelectStatement;
 import com.queryscope.backend.engine.ast.TableReference;
 import com.queryscope.backend.service.QueryParserService;
+import com.queryscope.backend.service.QueryExecutionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -25,6 +26,9 @@ class QueryControllerTest {
 
     @MockBean
     private QueryParserService queryParserService;
+
+    @MockBean
+    private QueryExecutionService queryExecutionService;
 
     @Test
     void returnsParsedAst() throws Exception {

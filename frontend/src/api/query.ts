@@ -1,9 +1,9 @@
-export type ParseApiErrorKind = 'parser' | 'backend'
+export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
 
 export class ParseApiError extends Error {
-  readonly kind: ParseApiErrorKind
+  readonly kind: QueryApiErrorKind
 
-  constructor(message: string, kind: ParseApiErrorKind) {
+  constructor(message: string, kind: QueryApiErrorKind) {
     super(message)
     this.name = 'ParseApiError'
     this.kind = kind
@@ -17,24 +17,35 @@ export type ParsedQuery = {
   where: Record<string, unknown> | null
 }
 
-export async function parseQuery(sql: string): Promise<ParsedQuery> {
-  let response: Response
+export type QueryResult = {
+  columns: Array<{ name: string; type: string }>
+  rows: unknown[][]
+  rowCount: number
+  metrics: { rowsScanned: number; rowsReturned: number }
+}
+
+async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution') {
   try {
-    response = await fetch('/api/query/parse', {
+    const response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sql }),
     })
-  } catch {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    if (!response.ok) {
+      throw new ParseApiError(payload?.error ?? 'The query request failed.', errorKind)
+    }
+    return payload
+  } catch (error) {
+    if (error instanceof ParseApiError) throw error
     throw new ParseApiError('Backend unavailable. Make sure the QueryScope API is running.', 'backend')
   }
+}
 
-  const payload = (await response.json().catch(() => null)) as { error?: string } | ParsedQuery | null
-  if (!response.ok) {
-    const message = payload && 'error' in payload && payload.error
-      ? payload.error
-      : 'The query could not be parsed.'
-    throw new ParseApiError(message, 'parser')
-  }
-  return payload as ParsedQuery
+export async function parseQuery(sql: string): Promise<ParsedQuery> {
+  return await postSql('/api/query/parse', sql, 'parser') as ParsedQuery
+}
+
+export async function executeQuery(sql: string): Promise<QueryResult> {
+  return await postSql('/api/query/execute', sql, 'execution') as QueryResult
 }

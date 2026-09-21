@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, BookOpen, CircleHelp, Layers3, Settings2 } from 'lucide-react'
 import { checkBackendHealth, type BackendStatus } from './api/health'
-import { parseQuery, ParseApiError, type ParsedQuery } from './api/query'
+import { executeQuery, parseQuery, ParseApiError, type ParsedQuery, type QueryResult } from './api/query'
 import { BackendStatus as BackendStatusIndicator } from './components/BackendStatus'
 import { BrandMark } from './components/BrandMark'
+import { ExecutionErrorPanel } from './components/ExecutionErrorPanel'
 import { ParseErrorPanel } from './components/ParseErrorPanel'
 import { ParsedQueryPanel } from './components/ParsedQueryPanel'
 import { PlaceholderPanel } from './components/PlaceholderPanel'
 import { QueryEditor } from './components/QueryEditor'
+import { ResultsPanel } from './components/ResultsPanel'
 
-const starterQuery = 'SELECT *\nFROM users\nWHERE status = \'active\';'
+const starterQuery = 'SELECT name, age\nFROM users\nWHERE age > 18;'
 type ParseState = 'idle' | 'parsing' | 'success' | 'parser-error' | 'backend-unavailable'
+type ExecuteState = 'idle' | 'executing' | 'success' | 'execution-error' | 'backend-unavailable'
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
@@ -18,6 +21,9 @@ function App() {
   const [parseState, setParseState] = useState<ParseState>('idle')
   const [parsedQuery, setParsedQuery] = useState<ParsedQuery | null>(null)
   const [parseError, setParseError] = useState('')
+  const [executeState, setExecuteState] = useState<ExecuteState>('idle')
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null)
+  const [executeError, setExecuteError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -30,6 +36,8 @@ function App() {
   async function handleParse() {
     setParseState('parsing')
     setParseError('')
+    setExecuteState('idle')
+    setQueryResult(null)
     try {
       const ast = await parseQuery(query)
       setParsedQuery(ast)
@@ -45,6 +53,33 @@ function App() {
       }
     }
   }
+
+  async function handleRun() {
+    setExecuteState('executing')
+    setExecuteError('')
+    setQueryResult(null)
+    let parsed = false
+    try {
+      const ast = await parseQuery(query)
+      parsed = true
+      setParsedQuery(ast)
+      setParseState('success')
+      setQueryResult(await executeQuery(query))
+      setExecuteState('success')
+    } catch (error) {
+      if (!parsed) {
+        setParsedQuery(null)
+        setParseError(error instanceof Error ? error.message : 'The query could not be parsed.')
+        setParseState(error instanceof ParseApiError && error.kind === 'backend' ? 'backend-unavailable' : 'parser-error')
+        setExecuteState('idle')
+      } else {
+        setExecuteError(error instanceof Error ? error.message : 'The query could not execute.')
+        setExecuteState(error instanceof ParseApiError && error.kind === 'backend' ? 'backend-unavailable' : 'execution-error')
+      }
+    }
+  }
+
+  const isBusy = parseState === 'parsing' || executeState === 'executing'
 
   return (
     <div className="app-shell">
@@ -68,17 +103,25 @@ function App() {
             <h1>Query workspace</h1>
             <p className="intro-copy">Explore how QueryScope will parse, plan, and execute SQL.</p>
           </div>
-          <div className="version-badge"><span className="live-dot" /> FOUNDATION / 0.1</div>
+          <div className="version-badge"><span className="live-dot" /> MILESTONE 3 / 0.3</div>
         </div>
 
         <div className="notice-banner" role="note">
           <span className="notice-mark">i</span>
-          <span>The database engine is under active development. Query execution and result data are not available yet.</span>
+          <span>Queries run against a small demo database held in memory. Data resets whenever the backend restarts.</span>
           <a href="#roadmap">View roadmap <ArrowUpRight size={14} /></a>
         </div>
 
         <div className="workspace-grid">
-          <QueryEditor query={query} onQueryChange={setQuery} onRun={handleParse} isParsing={parseState === 'parsing'} />
+          <QueryEditor
+            query={query}
+            onQueryChange={setQuery}
+            onParse={handleParse}
+            onRun={handleRun}
+            onExampleSelect={setQuery}
+            isParsing={parseState === 'parsing'}
+            isExecuting={executeState === 'executing'}
+          />
           <div className="bottom-panels">
             {parseState === 'success' && parsedQuery ? (
               <ParsedQueryPanel ast={parsedQuery} />
@@ -86,6 +129,11 @@ function App() {
               <ParseErrorPanel message={parseError} backendUnavailable={parseState === 'backend-unavailable'} />
             ) : (
               <PlaceholderPanel kind="results" />
+            )}
+            {executeState === 'execution-error' || executeState === 'backend-unavailable' ? (
+              <ExecutionErrorPanel message={executeError} />
+            ) : (
+              <ResultsPanel result={queryResult} isExecuting={executeState === 'executing'} />
             )}
             <PlaceholderPanel kind="plan" />
           </div>

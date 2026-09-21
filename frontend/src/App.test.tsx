@@ -15,16 +15,41 @@ function jsonResponse(payload: unknown, status = 200) {
   })
 }
 
-function healthyFetch(parseResponse: Response | Error = jsonResponse({
+const parsedAst = {
   type: 'SELECT',
-  columns: [{ type: 'COLUMN', name: 'name' }],
+  columns: [
+    { type: 'COLUMN', name: 'name' },
+    { type: 'COLUMN', name: 'age' },
+  ],
   from: { type: 'TABLE', name: 'users' },
-  where: { type: 'COMPARISON', operator: 'GREATER_THAN', left: { type: 'COLUMN', name: 'age' }, right: { type: 'NUMBER', value: 18 } },
-})) {
+  where: {
+    type: 'COMPARISON',
+    operator: 'GREATER_THAN',
+    left: { type: 'COLUMN', name: 'age' },
+    right: { type: 'NUMBER', value: 18 },
+  },
+}
+
+const queryResult = {
+  columns: [
+    { name: 'name', type: 'STRING' },
+    { name: 'age', type: 'INTEGER' },
+  ],
+  rows: [['Rahul', 19], ['Aayan', 21], ['Maya', 25]],
+  rowCount: 3,
+  metrics: { rowsScanned: 4, rowsReturned: 3 },
+}
+
+function healthyFetch(
+  parseResponse: Response | Error | Promise<Response> = jsonResponse(parsedAst),
+  executeResponse: Response | Error | Promise<Response> = jsonResponse(queryResult),
+) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-    if (input.toString() === '/api/health') return jsonResponse({ status: 'ok' })
-    if (parseResponse instanceof Error) throw parseResponse
-    return parseResponse
+    const path = input.toString()
+    if (path === '/api/health') return jsonResponse({ status: 'ok' })
+    const response = path.endsWith('/parse') ? parseResponse : executeResponse
+    if (response instanceof Error) throw response
+    return response
   })
 }
 
@@ -35,10 +60,9 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'Query workspace' })).toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue("SELECT *\nFROM users\nWHERE status = 'active';")
-    expect(screen.getByRole('button', { name: 'Run query' })).toBeEnabled()
+    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue('SELECT name, age\nFROM users\nWHERE age > 18;')
 
-    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await user.click(screen.getByRole('button', { name: 'Parse' }))
 
     await waitFor(() => expect(screen.getByText('PARSE SUCCESS')).toBeInTheDocument())
     expect(screen.getByText('users')).toBeInTheDocument()
@@ -47,16 +71,38 @@ describe('App', () => {
     expect(parseCall?.[1]).toEqual(expect.objectContaining({ method: 'POST' }))
   })
 
-  it('shows a parser error returned by the API', async () => {
-    const fetchMock = healthyFetch(jsonResponse({ error: 'Expected FROM after SELECT list at position 14' }, 400))
+  it('runs the query and renders rows and execution metrics', async () => {
+    const fetchMock = healthyFetch()
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: 'Run query' }))
 
+    await waitFor(() => expect(screen.getByText('EXECUTION SUCCESS')).toBeInTheDocument())
+    expect(screen.getByText('Rahul')).toBeInTheDocument()
+    expect(screen.getByText('Scanned').parentElement).toHaveTextContent('4')
+    expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/query/execute')).toBe(true)
+  })
+
+  it('shows a parser error returned by the API', async () => {
+    healthyFetch(jsonResponse({ error: 'Expected FROM after SELECT list at position 14' }, 400))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Parse' }))
+
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
     expect(screen.getByText('Expected FROM after SELECT list at position 14')).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalled()
+  })
+
+  it('shows a query execution error returned by the API', async () => {
+    healthyFetch(jsonResponse(parsedAst), jsonResponse({ error: "Unknown table 'missing'." }, 400))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("Unknown table 'missing'."))
   })
 
   it('shows backend unavailable when parsing cannot reach the API', async () => {
@@ -64,31 +110,33 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await user.click(screen.getByRole('button', { name: 'Parse' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Backend unavailable'))
   })
 
-  it('disables Run while parsing and restores it afterward', async () => {
-    let resolveParse!: (response: Response) => void
-    const pendingResponse = new Promise<Response>((resolve) => { resolveParse = resolve })
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-      if (input.toString() === '/api/health') return jsonResponse({ status: 'ok' })
-      return pendingResponse
-    })
+  it('disables Run while executing and restores it afterward', async () => {
+    let resolveExecute!: (response: Response) => void
+    const pendingExecute = new Promise<Response>((resolve) => { resolveExecute = resolve })
+    healthyFetch(jsonResponse(parsedAst), pendingExecute)
     const user = userEvent.setup()
     render(<App />)
 
-    const button = screen.getByRole('button', { name: 'Run query' })
-    await user.click(button)
-    expect(screen.getByRole('button', { name: 'Parsing…' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Executing…' })).toBeDisabled())
 
-    resolveParse(jsonResponse({
-      type: 'SELECT',
-      columns: [{ type: 'WILDCARD' }],
-      from: { type: 'TABLE', name: 'users' },
-      where: null,
-    }))
+    resolveExecute(jsonResponse(queryResult))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Run query' })).toBeEnabled())
+  })
+
+  it('renders an empty result set clearly', async () => {
+    healthyFetch(jsonResponse(parsedAst), jsonResponse({ ...queryResult, rows: [], rowCount: 0, metrics: { rowsScanned: 4, rowsReturned: 0 } }))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+
+    await waitFor(() => expect(screen.getByText('No matching rows')).toBeInTheDocument())
+    expect(screen.getByText((_, element) => element?.textContent === '0 rows')).toBeInTheDocument()
   })
 })

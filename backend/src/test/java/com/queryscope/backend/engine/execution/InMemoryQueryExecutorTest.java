@@ -1,0 +1,108 @@
+package com.queryscope.backend.engine.execution;
+
+import com.queryscope.backend.engine.ast.SelectStatement;
+import com.queryscope.backend.engine.parser.Lexer;
+import com.queryscope.backend.engine.parser.Parser;
+import com.queryscope.backend.engine.storage.ColumnDefinition;
+import com.queryscope.backend.engine.storage.DataType;
+import com.queryscope.backend.engine.storage.Database;
+import com.queryscope.backend.engine.storage.Table;
+import com.queryscope.backend.engine.storage.TableSchema;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class InMemoryQueryExecutorTest {
+
+    private Database database;
+    private QueryExecutor executor;
+
+    @BeforeEach
+    void setUp() {
+        database = new Database();
+        TableSchema schema = new TableSchema(List.of(
+                new ColumnDefinition("id", DataType.INTEGER),
+                new ColumnDefinition("name", DataType.STRING),
+                new ColumnDefinition("age", DataType.INTEGER),
+                new ColumnDefinition("active", DataType.BOOLEAN)
+        ));
+        Table users = new Table("users", schema);
+        users.insert(Map.of("id", 1, "name", "Rahul", "age", 19, "active", true));
+        users.insert(Map.of("id", 2, "name", "Aayan", "age", 21, "active", true));
+        users.insert(Map.of("id", 3, "name", "John", "age", 17, "active", false));
+        users.insert(Map.of("id", 4, "name", "Maya", "age", 25, "active", true));
+        database.createTable(users);
+        executor = new InMemoryQueryExecutor(database);
+    }
+
+    @Test
+    void returnsAllRowsAndColumnsForWildcard() {
+        QueryResult result = execute("SELECT * FROM users;");
+
+        assertThat(result.columns()).extracting(ResultColumn::name)
+                .containsExactly("id", "name", "age", "active");
+        assertThat(result.rows()).hasSize(4);
+        assertThat(result.rows().get(0)).containsExactly(1L, "Rahul", 19L, true);
+        assertThat(result.metrics()).isEqualTo(new ExecutionMetrics(4, 4));
+    }
+
+    @Test
+    void projectsOneAndMultipleColumnsInSelectOrder() {
+        assertThat(execute("SELECT name FROM users").columns()).extracting(ResultColumn::name)
+                .containsExactly("name");
+        assertThat(execute("SELECT name, age FROM users").rows())
+                .containsExactly(List.of("Rahul", 19L), List.of("Aayan", 21L), List.of("John", 17L), List.of("Maya", 25L));
+    }
+
+    @Test
+    void filtersIntegerStringAndBooleanComparisons() {
+        assertThat(names(execute("SELECT name FROM users WHERE age > 18"))).containsExactly("Rahul", "Aayan", "Maya");
+        assertThat(names(execute("SELECT name FROM users WHERE age >= 21"))).containsExactly("Aayan", "Maya");
+        assertThat(names(execute("SELECT name FROM users WHERE age = 19"))).containsExactly("Rahul");
+        assertThat(names(execute("SELECT name FROM users WHERE age != 19"))).containsExactly("Aayan", "John", "Maya");
+        assertThat(names(execute("SELECT name FROM users WHERE age < 18"))).containsExactly("John");
+        assertThat(names(execute("SELECT name FROM users WHERE age <= 19"))).containsExactly("Rahul", "John");
+        assertThat(names(execute("SELECT name FROM users WHERE name = 'Rahul'"))).containsExactly("Rahul");
+        assertThat(names(execute("SELECT name FROM users WHERE active = true"))).containsExactly("Rahul", "Aayan", "Maya");
+    }
+
+    @Test
+    void returnsEmptyResultWithColumnsAndMetricsWhenNothingMatches() {
+        QueryResult result = execute("SELECT name, age FROM users WHERE age > 100");
+
+        assertThat(result.columns()).extracting(ResultColumn::name).containsExactly("name", "age");
+        assertThat(result.rows()).isEmpty();
+        assertThat(result.rowCount()).isZero();
+        assertThat(result.metrics()).isEqualTo(new ExecutionMetrics(4, 0));
+    }
+
+    @Test
+    void rejectsUnknownTablesColumnsAndTypeMismatches() {
+        assertThatThrownBy(() -> execute("SELECT name FROM missing"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Unknown table 'missing'.");
+        assertThatThrownBy(() -> execute("SELECT email FROM users"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Unknown column 'email' in table 'users'.");
+        assertThatThrownBy(() -> execute("SELECT name FROM users WHERE age > 'Rahul'"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Type mismatch: cannot compare INTEGER with STRING.");
+        assertThatThrownBy(() -> execute("SELECT name FROM users WHERE active > 5"))
+                .isInstanceOf(QueryExecutionException.class)
+                .hasMessage("Type mismatch: cannot compare BOOLEAN with INTEGER.");
+    }
+
+    private QueryResult execute(String sql) {
+        SelectStatement statement = new Parser(new Lexer(sql).tokenize()).parse();
+        return executor.execute(statement);
+    }
+
+    private static List<String> names(QueryResult result) {
+        return result.rows().stream().map(row -> (String) row.get(0)).toList();
+    }
+}
