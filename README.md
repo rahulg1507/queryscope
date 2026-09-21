@@ -16,7 +16,7 @@ queryscope/
 
 ## Architecture
 
-The frontend runs as a separate development server and calls the backend through `/api`. The backend has distinct controller, service, model, repository, and engine packages so the database implementation has a clear home. Parsing remains pure application logic: it turns SQL text into an immutable AST, which the execution service then evaluates against the in-memory database.
+The frontend runs as a separate development server and calls the backend through `/api`. The backend has distinct controller, service, model, repository, and engine packages so the database implementation has a clear home. Parsing remains pure application logic: it turns SQL text into an immutable AST. The execution service then builds an execution plan and evaluates it against the in-memory database.
 
 ## Tech stack
 
@@ -74,7 +74,34 @@ npm run build
 - An in-memory, case-insensitive `users` table is seeded at startup with `INTEGER`, `STRING`, and `BOOLEAN` columns. Data resets when the backend restarts.
 - `SELECT` execution supports wildcard or named projection, optional `WHERE` comparisons, and table-scan/filter/projection operators.
 - `POST /api/query/execute` returns result columns, rows, row count, and `rowsScanned`/`rowsReturned` metrics. Unknown tables or columns and type mismatches return HTTP 400.
-- The frontend can parse SQL to inspect its AST or run it to display result rows and execution metrics.
+- Each execution response also contains an explicit plan tree with `PROJECTION`, `FILTER`, and `TABLE_SCAN` nodes, measured input/output rows, and operator details.
+- The frontend can parse SQL to inspect its AST or run it to display result rows, execution metrics, and the generated plan.
+
+## Execution plan architecture
+
+The AST describes what the user wrote. It is deliberately separate from the execution plan, which describes how QueryScope currently executes that statement:
+
+```text
+AST
+ ↓
+ExecutionPlanBuilder
+ ↓
+ExecutionPlan
+ ↓
+ExecutionPlanExecutor
+ ↓
+QueryResult + executionPlan
+```
+
+The current pipeline is a straightforward operator tree with no optimization:
+
+```text
+Projection (columns: name, age)
+└── Filter (condition: age > 18)
+    └── TableScan (table: users)
+```
+
+`SELECT * FROM users` uses only `TableScan`, while named projections add a `Projection` node. Plan metadata reports only measured input and output row counts; timing, cost, estimates, and optimizer decisions are not exposed.
 
 Example SQL:
 
@@ -107,6 +134,7 @@ Example AST response:
 
 - `POST /api/query/parse` accepts `{ "sql": "..." }` and returns an AST for supported SQL.
 - `POST /api/query/execute` accepts `{ "sql": "..." }` and returns `{ "columns": [...], "rows": [...], "rowCount": number, "metrics": { "rowsScanned": number, "rowsReturned": number } }`.
+- The execute response also includes `executionPlan`, a recursive tree whose nodes expose `type`, operator-specific `details`, `inputRows`, `outputRows`, and `children`.
 - Invalid SQL returns HTTP 400 with `{ "error": "..." }`.
 
 The current demo database is intentionally read-only. `GET /api/schema`, table creation, row mutation, persistence, and full SQL semantics are future work.
@@ -117,11 +145,11 @@ The current demo database is intentionally read-only. `GET /api/schema`, table c
 2. ~~AST~~
 3. ~~In-memory tables~~
 4. ~~Table scan/filter/projection~~
-5. Execution plans
+5. ~~Execution plans~~
 6. Joins
 7. Indexes
 8. Query optimizer
 9. Benchmarking
 10. Visualization
 
-The current milestone intentionally omits joins, grouping, ordering, limits, `NULL` semantics, mutations, indexes, query optimization, persistence, and visual execution plans.
+The current milestone intentionally omits joins, grouping, ordering, limits, `NULL` semantics, mutations, indexes, query optimization, persistence, and cost/timing estimates. The plan is generated directly from the parsed query; predicate pushdown, join ordering, and index selection are future work.

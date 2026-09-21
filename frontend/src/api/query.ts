@@ -22,6 +22,15 @@ export type QueryResult = {
   rows: unknown[][]
   rowCount: number
   metrics: { rowsScanned: number; rowsReturned: number }
+  executionPlan: ExecutionPlanNode
+}
+
+export type ExecutionPlanNode = {
+  type: string
+  details: Record<string, unknown>
+  inputRows: number
+  outputRows: number
+  children: ExecutionPlanNode[]
 }
 
 async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution') {

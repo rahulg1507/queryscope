@@ -49,12 +49,20 @@ class InMemoryQueryExecutorTest {
         assertThat(result.rows()).hasSize(4);
         assertThat(result.rows().get(0)).containsExactly(1L, "Rahul", 19L, true);
         assertThat(result.metrics()).isEqualTo(new ExecutionMetrics(4, 4));
+        assertThat(result.executionPlan().type()).isEqualTo("TABLE_SCAN");
+        assertThat(result.executionPlan().inputRows()).isEqualTo(4);
+        assertThat(result.executionPlan().outputRows()).isEqualTo(4);
+        assertThat(result.executionPlan().children()).isEmpty();
     }
 
     @Test
     void projectsOneAndMultipleColumnsInSelectOrder() {
-        assertThat(execute("SELECT name FROM users").columns()).extracting(ResultColumn::name)
+        QueryResult oneColumn = execute("SELECT name FROM users");
+        assertThat(oneColumn.columns()).extracting(ResultColumn::name)
                 .containsExactly("name");
+        assertThat(oneColumn.executionPlan().type()).isEqualTo("PROJECTION");
+        assertThat(oneColumn.executionPlan().children()).singleElement()
+                .extracting(node -> node.type()).isEqualTo("TABLE_SCAN");
         assertThat(execute("SELECT name, age FROM users").rows())
                 .containsExactly(List.of("Rahul", 19L), List.of("Aayan", 21L), List.of("John", 17L), List.of("Maya", 25L));
     }
@@ -69,6 +77,38 @@ class InMemoryQueryExecutorTest {
         assertThat(names(execute("SELECT name FROM users WHERE age <= 19"))).containsExactly("Rahul", "John");
         assertThat(names(execute("SELECT name FROM users WHERE name = 'Rahul'"))).containsExactly("Rahul");
         assertThat(names(execute("SELECT name FROM users WHERE active = true"))).containsExactly("Rahul", "Aayan", "Maya");
+    }
+
+    @Test
+    void exposesNestedPlanAndMeasuredMetadata() {
+        QueryResult result = execute("SELECT name FROM users WHERE age > 18");
+
+        assertThat(result.executionPlan().type()).isEqualTo("PROJECTION");
+        assertThat(result.executionPlan().details()).containsEntry("columns", List.of("name"));
+        assertThat(result.executionPlan().inputRows()).isEqualTo(3);
+        assertThat(result.executionPlan().outputRows()).isEqualTo(3);
+
+        var filter = result.executionPlan().children().get(0);
+        assertThat(filter.type()).isEqualTo("FILTER");
+        assertThat(filter.details()).containsEntry("condition", "age > 18");
+        assertThat(filter.inputRows()).isEqualTo(4);
+        assertThat(filter.outputRows()).isEqualTo(3);
+
+        var scan = filter.children().get(0);
+        assertThat(scan.type()).isEqualTo("TABLE_SCAN");
+        assertThat(scan.details()).containsEntry("table", "users");
+        assertThat(scan.inputRows()).isEqualTo(4);
+        assertThat(scan.outputRows()).isEqualTo(4);
+    }
+
+    @Test
+    void buildsFilterPlanForBooleanPredicate() {
+        QueryResult result = execute("SELECT name FROM users WHERE active = true");
+
+        assertThat(result.executionPlan().type()).isEqualTo("PROJECTION");
+        assertThat(result.executionPlan().children().get(0).type()).isEqualTo("FILTER");
+        assertThat(result.executionPlan().children().get(0).details())
+                .containsEntry("condition", "active = true");
     }
 
     @Test

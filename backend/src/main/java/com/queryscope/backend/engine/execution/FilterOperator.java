@@ -1,12 +1,7 @@
 package com.queryscope.backend.engine.execution;
 
-import com.queryscope.backend.engine.ast.BooleanLiteral;
-import com.queryscope.backend.engine.ast.ColumnExpression;
-import com.queryscope.backend.engine.ast.ComparisonExpression;
-import com.queryscope.backend.engine.ast.ComparisonOperator;
-import com.queryscope.backend.engine.ast.Expression;
-import com.queryscope.backend.engine.ast.NumberLiteral;
-import com.queryscope.backend.engine.ast.StringLiteral;
+import com.queryscope.backend.engine.plan.FilterCondition;
+import com.queryscope.backend.engine.plan.PlanComparisonOperator;
 import com.queryscope.backend.engine.storage.ColumnDefinition;
 import com.queryscope.backend.engine.storage.DataType;
 import com.queryscope.backend.engine.storage.Row;
@@ -18,10 +13,10 @@ import java.util.Objects;
 public final class FilterOperator implements QueryOperator {
 
     private final QueryOperator input;
-    private final ComparisonExpression condition;
+    private final FilterCondition condition;
     private final String tableName;
 
-    public FilterOperator(QueryOperator input, ComparisonExpression condition, String tableName) {
+    public FilterOperator(QueryOperator input, FilterCondition condition, String tableName) {
         this.input = input;
         this.condition = condition;
         this.tableName = tableName;
@@ -45,25 +40,22 @@ public final class FilterOperator implements QueryOperator {
     }
 
     private void validateCondition(OperatorResult inputResult) {
-        if (!(condition.left() instanceof ColumnExpression column)) {
-            throw new QueryExecutionException("WHERE conditions must compare a table column to a literal.");
-        }
-        ColumnDefinition leftColumn = inputResult.schema().requireColumn(column.name(), tableName);
-        DataType rightType = literalType(condition.right());
+        ColumnDefinition leftColumn = inputResult.schema().requireColumn(condition.column(), tableName);
+        DataType rightType = condition.valueType();
         if (leftColumn.type() != rightType) {
             throw new QueryExecutionException("Type mismatch: cannot compare " + leftColumn.type()
                     + " with " + rightType + ".");
         }
-        if (leftColumn.type() != DataType.INTEGER && condition.operator() != ComparisonOperator.EQUAL
-                && condition.operator() != ComparisonOperator.NOT_EQUAL) {
+        if (leftColumn.type() != DataType.INTEGER && condition.operator() != PlanComparisonOperator.EQUAL
+                && condition.operator() != PlanComparisonOperator.NOT_EQUAL) {
             throw new QueryExecutionException("Operator " + condition.operator()
                     + " is not supported for " + leftColumn.type() + " values.");
         }
     }
 
     private boolean matches(Row row) {
-        Object left = row.get(((ColumnExpression) condition.left()).name());
-        Object right = literalValue(condition.right());
+        Object left = row.get(condition.column());
+        Object right = condition.value();
         int comparison = compare(left, right);
         return switch (condition.operator()) {
             case EQUAL -> comparison == 0;
@@ -88,17 +80,4 @@ public final class FilterOperator implements QueryOperator {
         return Objects.equals(left, right) ? 0 : -1;
     }
 
-    private static DataType literalType(Expression expression) {
-        if (expression instanceof NumberLiteral) return DataType.INTEGER;
-        if (expression instanceof StringLiteral) return DataType.STRING;
-        if (expression instanceof BooleanLiteral) return DataType.BOOLEAN;
-        throw new QueryExecutionException("WHERE conditions require a literal right-hand value.");
-    }
-
-    private static Object literalValue(Expression expression) {
-        if (expression instanceof NumberLiteral number) return number.value();
-        if (expression instanceof StringLiteral string) return string.value();
-        if (expression instanceof BooleanLiteral bool) return bool.value();
-        throw new QueryExecutionException("WHERE conditions require a literal right-hand value.");
-    }
 }

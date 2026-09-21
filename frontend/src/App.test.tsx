@@ -38,6 +38,25 @@ const queryResult = {
   rows: [['Rahul', 19], ['Aayan', 21], ['Maya', 25]],
   rowCount: 3,
   metrics: { rowsScanned: 4, rowsReturned: 3 },
+  executionPlan: {
+    type: 'PROJECTION',
+    details: { columns: ['name', 'age'] },
+    inputRows: 3,
+    outputRows: 3,
+    children: [{
+      type: 'FILTER',
+      details: { condition: 'age > 18' },
+      inputRows: 4,
+      outputRows: 3,
+      children: [{
+        type: 'TABLE_SCAN',
+        details: { table: 'users' },
+        inputRows: 4,
+        outputRows: 4,
+        children: [],
+      }],
+    }],
+  },
 }
 
 function healthyFetch(
@@ -81,6 +100,10 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('EXECUTION SUCCESS')).toBeInTheDocument())
     expect(screen.getByText('Rahul')).toBeInTheDocument()
     expect(screen.getByText('Scanned').parentElement).toHaveTextContent('4')
+    expect(screen.getByText('PROJECTION')).toBeInTheDocument()
+    expect(screen.getByText('FILTER')).toBeInTheDocument()
+    expect(screen.getByText('TABLE SCAN')).toBeInTheDocument()
+    expect(screen.getByText('age > 18')).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/query/execute')).toBe(true)
   })
 
@@ -103,6 +126,29 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Run query' }))
 
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent("Unknown table 'missing'."))
+  })
+
+  it('clears a previous plan when a later execution fails', async () => {
+    let executeCalls = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const path = input.toString()
+      if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path.endsWith('/parse')) return jsonResponse(parsedAst)
+      executeCalls += 1
+      return executeCalls === 1
+        ? jsonResponse(queryResult)
+        : jsonResponse({ error: 'Unknown table.' }, 400)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByText('PLAN GENERATED')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unknown table.'))
+    expect(screen.queryByText('PLAN GENERATED')).not.toBeInTheDocument()
+    expect(screen.getByText('Plan visualization will appear here')).toBeInTheDocument()
   })
 
   it('shows backend unavailable when parsing cannot reach the API', async () => {
@@ -138,5 +184,6 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByText('No matching rows')).toBeInTheDocument())
     expect(screen.getByText((_, element) => element?.textContent === '0 rows')).toBeInTheDocument()
+    expect(screen.getByText('PLAN GENERATED')).toBeInTheDocument()
   })
 })

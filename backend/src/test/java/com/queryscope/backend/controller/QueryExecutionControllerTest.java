@@ -30,7 +30,15 @@ class QueryExecutionControllerTest {
                 .andExpect(jsonPath("$.rows[2][0]").value("Maya"))
                 .andExpect(jsonPath("$.rowCount").value(3))
                 .andExpect(jsonPath("$.metrics.rowsScanned").value(4))
-                .andExpect(jsonPath("$.metrics.rowsReturned").value(3));
+                .andExpect(jsonPath("$.metrics.rowsReturned").value(3))
+                .andExpect(jsonPath("$.executionPlan.type").value("PROJECTION"))
+                .andExpect(jsonPath("$.executionPlan.details.columns[0]").value("name"))
+                .andExpect(jsonPath("$.executionPlan.inputRows").value(3))
+                .andExpect(jsonPath("$.executionPlan.outputRows").value(3))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("FILTER"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.condition").value("age > 18"))
+                .andExpect(jsonPath("$.executionPlan.children[0].children[0].type").value("TABLE_SCAN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].children[0].details.table").value("users"));
     }
 
     @Test

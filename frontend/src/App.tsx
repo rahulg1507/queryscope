@@ -7,6 +7,7 @@ import { BrandMark } from './components/BrandMark'
 import { ExecutionErrorPanel } from './components/ExecutionErrorPanel'
 import { ParseErrorPanel } from './components/ParseErrorPanel'
 import { ParsedQueryPanel } from './components/ParsedQueryPanel'
+import { ExecutionPlanPanel } from './components/ExecutionPlanPanel'
 import { PlaceholderPanel } from './components/PlaceholderPanel'
 import { QueryEditor } from './components/QueryEditor'
 import { ResultsPanel } from './components/ResultsPanel'
@@ -103,12 +104,12 @@ function App() {
             <h1>Query workspace</h1>
             <p className="intro-copy">Explore how QueryScope will parse, plan, and execute SQL.</p>
           </div>
-          <div className="version-badge"><span className="live-dot" /> MILESTONE 3 / 0.3</div>
+          <div className="version-badge"><span className="live-dot" /> MILESTONE 4 / 0.4</div>
         </div>
 
         <div className="notice-banner" role="note">
           <span className="notice-mark">i</span>
-          <span>Queries run against a small demo database held in memory. Data resets whenever the backend restarts.</span>
+          <span>Queries run against an in-memory demo database. Results include the actual execution plan; data resets whenever the backend restarts.</span>
           <a href="#roadmap">View roadmap <ArrowUpRight size={14} /></a>
         </div>
 
@@ -135,7 +136,7 @@ function App() {
             ) : (
               <ResultsPanel result={queryResult} isExecuting={executeState === 'executing'} />
             )}
-            <PlaceholderPanel kind="plan" />
+            <ExecutionPlanPanel plan={queryResult?.executionPlan ?? null} isExecuting={executeState === 'executing'} />
           </div>
         </div>
       </main>
