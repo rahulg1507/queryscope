@@ -86,4 +86,26 @@ class QueryExecutionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Ambiguous column 'id'."));
     }
+
+    @Test
+    void executesHashJoinWhenRequestedCaseInsensitively() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id;\",\"joinStrategy\":\"hash\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rowCount").value(4))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("HASH_JOIN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.strategy").value("HASH"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.buildSide").value("LEFT"))
+                .andExpect(jsonPath("$.executionPlan.children[0].details.hashLookups").value(4));
+    }
+
+    @Test
+    void rejectsUnknownJoinStrategy() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT * FROM users JOIN expenses ON users.id = expenses.user_id\",\"joinStrategy\":\"sort_merge\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid join strategy 'sort_merge'. Supported strategies: NESTED_LOOP, HASH."));
+    }
 }

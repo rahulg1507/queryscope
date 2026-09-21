@@ -3,6 +3,12 @@ package com.queryscope.backend.engine.plan;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Compatibility plan node retained for callers that construct the original
+ * nested-loop plan directly. New plans use {@link JoinPlan} so the strategy is
+ * explicit in the plan model.
+ */
+@Deprecated
 public record NestedLoopJoinPlan(
         String leftTable,
         String rightTable,
@@ -37,7 +43,7 @@ public record NestedLoopJoinPlan(
 
     @Override
     public Map<String, Object> details() {
-        return Map.of("condition", condition.display());
+        return Map.of("condition", condition.display(), "strategy", JoinStrategy.NESTED_LOOP.name());
     }
 
     @Override

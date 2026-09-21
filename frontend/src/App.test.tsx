@@ -82,6 +82,27 @@ const joinResult = {
   },
 }
 
+const hashJoinResult = {
+  ...joinResult,
+  executionPlan: {
+    ...joinResult.executionPlan,
+    children: [{
+      ...joinResult.executionPlan.children[0],
+      type: 'HASH_JOIN',
+      details: {
+        condition: 'users.id = expenses.user_id',
+        strategy: 'HASH',
+        buildSide: 'LEFT',
+        buildRows: 4,
+        rowsInserted: 4,
+        probeRows: 4,
+        hashLookups: 4,
+        matches: 4,
+      },
+    }],
+  },
+}
+
 function healthyFetch(
   parseResponse: Response | Error | Promise<Response> = jsonResponse(parsedAst),
   executeResponse: Response | Error | Promise<Response> = jsonResponse(queryResult),
@@ -146,6 +167,33 @@ describe('App', () => {
     expect(screen.getByText('comparisons')).toBeInTheDocument()
     expect(screen.getByText('16')).toBeInTheDocument()
     expect(screen.getAllByText('Rahul')).toHaveLength(2)
+  })
+
+  it('selects hash execution and compares equivalent join results', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const path = input.toString()
+      if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path.endsWith('/parse')) return jsonResponse(parsedAst)
+      const body = JSON.parse(String(init?.body ?? '{}')) as { joinStrategy?: string }
+      return jsonResponse(body.joinStrategy === 'HASH' ? hashJoinResult : joinResult)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /SELECT users\.name, expenses\.amount/ }))
+    const strategy = screen.getByLabelText('Join strategy')
+    expect(strategy).toBeEnabled()
+    await user.selectOptions(strategy, 'HASH')
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+
+    await waitFor(() => expect(screen.getByText('HASH JOIN')).toBeInTheDocument())
+    const executeCall = fetchMock.mock.calls.find(([input, init]) => input.toString() === '/api/query/execute' && String(init?.body).includes('"HASH"'))
+    expect(executeCall).toBeDefined()
+
+    await user.click(screen.getByRole('button', { name: 'Compare strategies' }))
+    await waitFor(() => expect(screen.getByText('EQUIVALENT RESULTS')).toBeInTheDocument())
+    expect(screen.getByText('Comparisons / lookups')).toBeInTheDocument()
+    expect(screen.getByText('Rows inserted')).toBeInTheDocument()
   })
 
   it('shows a parser error returned by the API', async () => {

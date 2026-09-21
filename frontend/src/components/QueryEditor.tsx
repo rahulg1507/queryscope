@@ -1,4 +1,5 @@
-import { Code2, Play } from 'lucide-react'
+import { Code2, GitCompare, Play } from 'lucide-react'
+import type { JoinStrategy } from '../api/query'
 
 type QueryEditorProps = {
   query: string
@@ -6,8 +7,12 @@ type QueryEditorProps = {
   onParse: () => void | Promise<void>
   onRun: () => void | Promise<void>
   onExampleSelect: (query: string) => void
+  joinStrategy: JoinStrategy
+  onJoinStrategyChange: (strategy: JoinStrategy) => void
+  onCompare: () => void | Promise<void>
   isParsing: boolean
   isExecuting: boolean
+  isComparing: boolean
 }
 
 const examples = [
@@ -18,8 +23,9 @@ const examples = [
   'SELECT users.name, expenses.amount\nFROM users\nJOIN expenses\nON users.id = expenses.user_id;',
 ]
 
-export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, isParsing, isExecuting }: QueryEditorProps) {
-  const isBusy = isParsing || isExecuting
+export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
+  const isBusy = isParsing || isExecuting || isComparing
+  const hasJoin = /\bjoin\b/i.test(query)
 
   return (
     <section className="workspace-card editor-card" aria-labelledby="query-editor-title">
@@ -50,6 +56,23 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSel
             {isExecuting ? 'Executing…' : 'Run query'}
           </button>
         </div>
+      </div>
+      <div className="strategy-controls">
+        <label htmlFor="join-strategy">Join strategy</label>
+        <select
+          id="join-strategy"
+          value={joinStrategy}
+          onChange={(event) => onJoinStrategyChange(event.target.value as JoinStrategy)}
+          disabled={!hasJoin || isBusy}
+        >
+          <option value="NESTED_LOOP">Nested Loop</option>
+          <option value="HASH">Hash Join</option>
+        </select>
+        <span>{hasJoin ? 'Selected manually; no optimizer is applied.' : 'Select a JOIN query to choose a strategy.'}</span>
+        <button className="secondary-button compare-button" type="button" onClick={() => void onCompare()} disabled={!hasJoin || isBusy}>
+          <GitCompare size={14} />
+          {isComparing ? 'Comparing…' : 'Compare strategies'}
+        </button>
       </div>
       <div className="examples-row" aria-label="Example queries">
         <span>EXAMPLES</span>

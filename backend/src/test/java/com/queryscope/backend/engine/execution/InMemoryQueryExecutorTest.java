@@ -8,6 +8,7 @@ import com.queryscope.backend.engine.storage.DataType;
 import com.queryscope.backend.engine.storage.Database;
 import com.queryscope.backend.engine.storage.Table;
 import com.queryscope.backend.engine.storage.TableSchema;
+import com.queryscope.backend.engine.plan.JoinStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -158,6 +159,28 @@ class InMemoryQueryExecutorTest {
         QueryResult qualifiedIds = execute("SELECT users.id, expenses.id FROM users JOIN expenses ON users.id = expenses.user_id");
         assertThat(qualifiedIds.columns()).extracting(ResultColumn::name)
                 .containsExactly("users.id", "expenses.id");
+    }
+
+    @Test
+    void executesHashJoinWithDeterministicBuildSideAndMetrics() {
+        SelectStatement statement = new Parser(new Lexer(
+                "SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id"
+        ).tokenize()).parse();
+        QueryResult nestedLoop = executor.execute(statement, JoinStrategy.NESTED_LOOP);
+        QueryResult hash = executor.execute(statement, JoinStrategy.HASH);
+
+        assertThat(hash.executionPlan().type()).isEqualTo("PROJECTION");
+        var join = hash.executionPlan().children().get(0);
+        assertThat(join.type()).isEqualTo("HASH_JOIN");
+        assertThat(join.details()).containsEntry("strategy", "HASH")
+                .containsEntry("buildSide", "LEFT")
+                .containsEntry("probeSide", "RIGHT")
+                .containsEntry("buildRows", 4)
+                .containsEntry("probeRows", 4)
+                .containsEntry("rowsInserted", 4)
+                .containsEntry("hashLookups", 4)
+                .containsEntry("matches", 4);
+        assertThat(hash.rows()).containsExactlyInAnyOrderElementsOf(nestedLoop.rows());
     }
 
     @Test

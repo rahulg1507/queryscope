@@ -1,4 +1,5 @@
 export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
+export type JoinStrategy = 'NESTED_LOOP' | 'HASH'
 
 export class ParseApiError extends Error {
   readonly kind: QueryApiErrorKind
@@ -33,12 +34,12 @@ export type ExecutionPlanNode = {
   children: ExecutionPlanNode[]
 }
 
-async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution') {
+async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', joinStrategy?: JoinStrategy) {
   try {
     const response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql }),
+      body: JSON.stringify(joinStrategy ? { sql, joinStrategy } : { sql }),
     })
     const payload = (await response.json().catch(() => null)) as { error?: string } | null
     if (!response.ok) {
@@ -55,6 +56,6 @@ export async function parseQuery(sql: string): Promise<ParsedQuery> {
   return await postSql('/api/query/parse', sql, 'parser') as ParsedQuery
 }
 
-export async function executeQuery(sql: string): Promise<QueryResult> {
-  return await postSql('/api/query/execute', sql, 'execution') as QueryResult
+export async function executeQuery(sql: string, joinStrategy: JoinStrategy = 'NESTED_LOOP'): Promise<QueryResult> {
+  return await postSql('/api/query/execute', sql, 'execution', joinStrategy) as QueryResult
 }

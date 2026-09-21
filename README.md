@@ -72,10 +72,11 @@ npm run build
 - `POST /api/query/parse` returns the parsed AST and uses HTTP 400 for invalid user SQL.
 - The frontend displays successful parses as an expandable AST tree and shows parser/backend errors clearly.
 - An in-memory, case-insensitive `users` and `expenses` demo schema is seeded at startup. Data resets when the backend restarts.
-- `SELECT` execution supports wildcard or named projection, optional `WHERE` comparisons, and inner joins using a nested-loop operator.
+- `SELECT` execution supports wildcard or named projection, optional `WHERE` comparisons, and equality-based inner joins using either nested-loop or hash execution.
 - Qualified references such as `users.id` and `expenses.user_id` resolve across joined schemas. Ambiguous unqualified references return HTTP 400.
 - `POST /api/query/execute` returns result columns, rows, row count, and `rowsScanned`/`rowsReturned` metrics. Unknown tables or columns and type mismatches return HTTP 400.
-- Each execution response also contains an explicit plan tree with `PROJECTION`, `FILTER`, `NESTED_LOOP_JOIN`, and `TABLE_SCAN` nodes, measured input/output rows, and operator details.
+- Each execution response also contains an explicit plan tree with `PROJECTION`, `FILTER`, `NESTED_LOOP_JOIN`, `HASH_JOIN`, and `TABLE_SCAN` nodes, measured input/output rows, and operator details.
+- Join strategy is selected explicitly per execution with `NESTED_LOOP` (the default) or `HASH`; QueryScope does not choose automatically. Hash joins build on the smaller input, breaking equal-size ties in favor of the left input.
 - The frontend can parse SQL to inspect its AST or run it to display result rows, execution metrics, and the generated plan.
 
 ## Execution plan architecture
@@ -110,6 +111,10 @@ Projection (columns: users.name, expenses.amount)
     ├── TableScan (table: users)
     └── TableScan (table: expenses)
 ```
+
+The same join can be executed as a hash join by sending `joinStrategy: "HASH"`. Its plan reports the build/probe side, build and probe row counts, rows inserted, hash lookups, bucket count, matches, and output rows. Nested-loop joins report left/right rows, comparisons, matches, and output rows. Both operators share the same schema resolution, equality validation, and row assembly logic.
+
+For a left input of `N` rows and a right input of `M` rows, nested-loop execution performs `N × M` comparisons. Hash execution builds a hash table on the smaller input and probes the larger input, with one lookup per probe row plus hash-bucket matching work. This is an execution-strategy comparison fixture, not an optimizer: users explicitly choose the strategy and results are compared as unordered row sets in the frontend.
 
 `SELECT * FROM users` uses only `TableScan`, while named projections add a `Projection` node. Joined wildcard results expose qualified column names such as `users.id` and `expenses.id`. Plan metadata reports only measured row counts; nested-loop joins additionally report left/right rows, comparisons, matches, and output rows. Timing, cost, estimates, and optimizer decisions are not exposed.
 
@@ -152,7 +157,8 @@ Example AST response:
 ## API
 
 - `POST /api/query/parse` accepts `{ "sql": "..." }` and returns an AST for supported SQL.
-- `POST /api/query/execute` accepts `{ "sql": "..." }` and returns `{ "columns": [...], "rows": [...], "rowCount": number, "metrics": { "rowsScanned": number, "rowsReturned": number }, "executionPlan": {...} }`.
+- `POST /api/query/execute` accepts `{ "sql": "...", "joinStrategy": "NESTED_LOOP" | "HASH" }` and returns `{ "columns": [...], "rows": [...], "rowCount": number, "metrics": { "rowsScanned": number, "rowsReturned": number }, "executionPlan": {...} }`. `joinStrategy` is optional and defaults to `NESTED_LOOP`; its value is case-insensitive.
+- On non-join queries, a supplied `joinStrategy` is accepted but has no effect; table scans, filters, and projections keep their existing plan.
 - The execute response also includes `executionPlan`, a recursive tree whose nodes expose `type`, operator-specific `details`, `inputRows`, `outputRows`, and `children`.
 - Invalid SQL returns HTTP 400 with `{ "error": "..." }`.
 
@@ -166,9 +172,10 @@ The current demo database is intentionally read-only. `GET /api/schema`, table c
 4. ~~Table scan/filter/projection~~
 5. ~~Execution plans~~
 6. ~~Joins~~
-7. Indexes
-8. Query optimizer
-9. Benchmarking
-10. Visualization
+7. ~~Hash join strategies~~
+8. Indexes
+9. Query optimizer
+10. Benchmarking
+11. Visualization
 
-The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, grouping, ordering, limits, `NULL` semantics, mutations, indexes, hash joins, query optimization, persistence, and cost/timing estimates. The plan is generated directly from the parsed query; predicate pushdown, join ordering, and index selection are future work.
+The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, grouping, ordering, limits, `NULL` semantics, mutations, indexes, query optimization, persistence, and cost/timing estimates. The plan is generated directly from the parsed query; predicate pushdown, join ordering, and index selection are future work.

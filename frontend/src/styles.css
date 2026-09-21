@@ -76,6 +76,11 @@ h2 { margin-top: 9px; color: #eaf2fc; font-size: 16px; letter-spacing: -.025em; 
 .examples-row button { padding: 5px 7px; border: 1px solid #263e5b; border-radius: 4px; color: #7f9bb9; background: #0d1b2c; font: 10px 'DM Mono', monospace; cursor: pointer; }
 .examples-row button:hover { color: #b9d8fa; border-color: #437bb5; }
 .examples-row button:disabled { cursor: wait; opacity: .55; }
+.strategy-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 15px; padding-top: 14px; border-top: 1px solid #1c3048; color: #6c829d; font-size: 11px; }
+.strategy-controls label { color: #9bb7d6; font: 500 10px 'DM Mono', monospace; text-transform: uppercase; }
+.strategy-controls select { padding: 7px 9px; border: 1px solid #365273; border-radius: 5px; color: #bad8ff; background: #0d1b2c; font: 11px 'DM Mono', monospace; }
+.strategy-controls select:disabled { cursor: not-allowed; opacity: .55; }
+.compare-button { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
 .parsed-card { min-height: 254px; padding: 23px 25px; }
 .parse-success { display: flex; align-items: center; gap: 5px; color: #61dfa0; font: 500 9px 'DM Mono', monospace; }
 .ast-tree { min-height: 175px; margin-top: 20px; padding: 12px 13px; overflow: auto; border: 1px solid #213b59; border-radius: 5px; background: #091523; font: 11px/1.7 'DM Mono', monospace; }
@@ -129,6 +134,15 @@ tbody tr:last-child td { border-bottom: 0; }
 .plan-branch-join > .plan-children { align-items: flex-start; gap: 16px; }
 .plan-branch-join > .plan-children > .plan-child { flex: 1; min-width: 0; }
 .plan-branch-join > .plan-children > .plan-child > .plan-branch { width: 100%; }
+.comparison-card { grid-column: 1 / -1; min-height: 190px; padding: 23px 25px; }
+.comparison-placeholder { display: flex; min-height: 120px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.comparison-placeholder h2 { margin: 0; font-size: 14px; }
+.comparison-placeholder p { max-width: 420px; margin-top: 8px; color: #647b96; font-size: 11px; line-height: 1.6; }
+.comparison-error p { color: #e4aab0; font: 11px/1.6 'DM Mono', monospace; }
+.comparison-warning { color: #e0b679; font: 500 9px 'DM Mono', monospace; }
+.comparison-table-wrap { margin-top: 17px; overflow-x: auto; border: 1px solid #213b59; border-radius: 5px; }
+.comparison-table th, .comparison-table td { padding: 8px 11px; }
+.comparison-table td:first-child { color: #7893b0; }
 .app-footer { display: flex; justify-content: space-between; padding: 20px 5.5%; border-top: 1px solid #18283c; color: #526982; font: 10px 'DM Mono', monospace; letter-spacing: .04em; }
 .muted-separator { margin: 0 5px; color: #30455e; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -151,6 +165,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .editor-footer { align-items: flex-start; flex-direction: column; }
   .editor-actions { width: 100%; }
   .editor-actions button { flex: 1; }
+  .compare-button { width: 100%; justify-content: center; margin-left: 0; }
   .bottom-panels { grid-template-columns: 1fr; }
   .plan-node { width: 100%; }
   .plan-branch-join > .plan-children { flex-direction: column; gap: 0; }

@@ -3,7 +3,8 @@ package com.queryscope.backend.engine.execution;
 import com.queryscope.backend.engine.plan.ExecutionPlan;
 import com.queryscope.backend.engine.plan.ExecutionPlanNode;
 import com.queryscope.backend.engine.plan.FilterPlan;
-import com.queryscope.backend.engine.plan.NestedLoopJoinPlan;
+import com.queryscope.backend.engine.plan.JoinPlan;
+import com.queryscope.backend.engine.plan.JoinStrategy;
 import com.queryscope.backend.engine.plan.ProjectionPlan;
 import com.queryscope.backend.engine.plan.TableScanPlan;
 import com.queryscope.backend.engine.storage.Database;
@@ -27,14 +28,13 @@ public final class ExecutionPlanExecutor {
         if (node instanceof FilterPlan filter) {
             return new FilterOperator(operatorFor(filter.child()), filter.condition(), filter.table());
         }
-        if (node instanceof NestedLoopJoinPlan join) {
-            return new NestedLoopJoinOperator(
-                    operatorFor(join.left()),
-                    operatorFor(join.right()),
-                    join.condition(),
-                    join.leftTable(),
-                    join.rightTable()
-            );
+        if (node instanceof JoinPlan join) {
+            QueryOperator left = operatorFor(join.left());
+            QueryOperator right = operatorFor(join.right());
+            if (join.strategy() == JoinStrategy.HASH) {
+                return new HashJoinOperator(left, right, join.condition(), join.leftTable(), join.rightTable());
+            }
+            return new NestedLoopJoinOperator(left, right, join.condition(), join.leftTable(), join.rightTable());
         }
         if (node instanceof ProjectionPlan projection) {
             return new ProjectionOperator(operatorFor(projection.child()), projection.columns(), projection.table());

@@ -21,8 +21,15 @@ import java.util.List;
 public final class ExecutionPlanBuilder {
 
     public ExecutionPlan build(SelectStatement statement) {
+        return build(statement, JoinStrategy.NESTED_LOOP);
+    }
+
+    public ExecutionPlan build(SelectStatement statement, JoinStrategy joinStrategy) {
         if (statement == null || statement.from() == null) {
             throw new QueryExecutionException("A SELECT statement requires a table.");
+        }
+        if (joinStrategy == null) {
+            joinStrategy = JoinStrategy.NESTED_LOOP;
         }
         ExecutionPlanNode root;
         String sourceContext;
@@ -30,10 +37,11 @@ public final class ExecutionPlanBuilder {
             root = new TableScanPlan(table.name());
             sourceContext = table.name();
         } else if (statement.from() instanceof JoinSource join) {
-            root = new NestedLoopJoinPlan(
+            root = new JoinPlan(
                     join.left().name(),
                     join.right().name(),
                     new JoinCondition(join.condition().left().qualifiedName(), join.condition().right().qualifiedName()),
+                    joinStrategy,
                     new TableScanPlan(join.left().name()),
                     new TableScanPlan(join.right().name())
             );

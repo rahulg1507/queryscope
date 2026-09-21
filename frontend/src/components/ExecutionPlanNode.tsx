@@ -21,9 +21,10 @@ function detailValue(value: unknown) {
 
 export function ExecutionPlanNode({ node }: ExecutionPlanNodeProps) {
   const Icon = iconFor(node.type)
+  const isJoin = node.type === 'NESTED_LOOP_JOIN' || node.type === 'HASH_JOIN'
 
   return (
-    <div className={`plan-branch ${node.type === 'NESTED_LOOP_JOIN' ? 'plan-branch-join' : ''}`}>
+    <div className={`plan-branch ${isJoin ? 'plan-branch-join' : ''}`}>
       <article className={`plan-node plan-node-${node.type.toLowerCase()}`}>
         <div className="plan-node-heading">
           <span className="plan-node-icon"><Icon size={15} /></span>
