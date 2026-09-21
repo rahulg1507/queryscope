@@ -16,7 +16,7 @@ queryscope/
 
 ## Architecture
 
-The frontend runs as a separate development server and calls the backend through `/api`. The backend has distinct controller, service, model, repository, and engine packages so the future database implementation has a clear home. Only the health endpoint is active in this milestone.
+The frontend runs as a separate development server and calls the backend through `/api`. The backend has distinct controller, service, model, repository, and engine packages so the future database implementation has a clear home. The parser is pure application logic: it turns SQL text into an immutable AST and never executes it.
 
 ## Tech stack
 
@@ -66,17 +66,53 @@ npm run build
 
 - `GET /api/health` returns `{ "status": "ok" }`.
 - The frontend reports whether the backend health check is reachable.
-- The SQL editor, results panel, and query-plan panel are intentionally placeholders.
-- No SQL execution or fake query results are implemented.
+- Lexical analysis with case-insensitive `SELECT`, `FROM`, `WHERE`, and boolean keywords.
+- Parsing of `SELECT`, `FROM`, optional `WHERE`, comparison expressions, integer/string/boolean literals, and optional trailing semicolons.
+- Immutable AST generation for supported queries.
+- `POST /api/query/parse` returns the parsed AST and uses HTTP 400 for invalid user SQL.
+- The frontend displays successful parses as an expandable AST tree and shows parser/backend errors clearly.
+- Query execution is **not** implemented; the UI displays no query results.
+
+Example SQL:
+
+```sql
+SELECT name, age
+FROM users
+WHERE age > 18;
+```
+
+Example AST response:
+
+```json
+{
+  "type": "SELECT",
+  "columns": [
+    { "type": "COLUMN", "name": "name" },
+    { "type": "COLUMN", "name": "age" }
+  ],
+  "from": { "type": "TABLE", "name": "users" },
+  "where": {
+    "type": "COMPARISON",
+    "operator": "GREATER_THAN",
+    "left": { "type": "COLUMN", "name": "age" },
+    "right": { "type": "NUMBER", "value": 18 }
+  }
+}
+```
+
+## API
+
+- `POST /api/query/parse` accepts `{ "sql": "..." }` and returns an AST for supported SQL.
+- Invalid SQL returns HTTP 400 with `{ "error": "..." }`.
 
 ## API roadmap
 
-Future API areas include `POST /api/query`, `GET /api/schema`, `POST /api/tables`, and `POST /api/tables/{table}/rows`. They are not implemented yet.
+Future API areas include query execution, `GET /api/schema`, `POST /api/tables`, and `POST /api/tables/{table}/rows`. They are not implemented yet.
 
 ## Roadmap
 
-1. SQL lexer/parser
-2. AST
+1. ~~SQL lexer/parser~~
+2. ~~AST~~
 3. In-memory tables
 4. Table scan/filter/projection
 5. Execution plans
@@ -86,4 +122,4 @@ Future API areas include `POST /api/query`, `GET /api/schema`, `POST /api/tables
 9. Benchmarking
 10. Visualization
 
-None of the roadmap items are claimed as implemented in this foundation milestone.
+Only lexical analysis, parsing, and AST generation from the first two roadmap items are implemented. Storage, execution, planning, and visualization beyond the current AST tree remain future work.

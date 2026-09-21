@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, BookOpen, CircleHelp, Layers3, Settings2 } from 'lucide-react'
 import { checkBackendHealth, type BackendStatus } from './api/health'
+import { parseQuery, ParseApiError, type ParsedQuery } from './api/query'
 import { BackendStatus as BackendStatusIndicator } from './components/BackendStatus'
 import { BrandMark } from './components/BrandMark'
+import { ParseErrorPanel } from './components/ParseErrorPanel'
+import { ParsedQueryPanel } from './components/ParsedQueryPanel'
 import { PlaceholderPanel } from './components/PlaceholderPanel'
 import { QueryEditor } from './components/QueryEditor'
 
 const starterQuery = 'SELECT *\nFROM users\nWHERE status = \'active\';'
+type ParseState = 'idle' | 'parsing' | 'success' | 'parser-error' | 'backend-unavailable'
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
   const [query, setQuery] = useState(starterQuery)
+  const [parseState, setParseState] = useState<ParseState>('idle')
+  const [parsedQuery, setParsedQuery] = useState<ParsedQuery | null>(null)
+  const [parseError, setParseError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -19,6 +26,25 @@ function App() {
     })
     return () => controller.abort()
   }, [])
+
+  async function handleParse() {
+    setParseState('parsing')
+    setParseError('')
+    try {
+      const ast = await parseQuery(query)
+      setParsedQuery(ast)
+      setParseState('success')
+    } catch (error) {
+      setParsedQuery(null)
+      if (error instanceof ParseApiError && error.kind === 'backend') {
+        setParseError(error.message)
+        setParseState('backend-unavailable')
+      } else {
+        setParseError(error instanceof Error ? error.message : 'The query could not be parsed.')
+        setParseState('parser-error')
+      }
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -52,9 +78,15 @@ function App() {
         </div>
 
         <div className="workspace-grid">
-          <QueryEditor query={query} onQueryChange={setQuery} onRun={() => undefined} />
+          <QueryEditor query={query} onQueryChange={setQuery} onRun={handleParse} isParsing={parseState === 'parsing'} />
           <div className="bottom-panels">
-            <PlaceholderPanel kind="results" />
+            {parseState === 'success' && parsedQuery ? (
+              <ParsedQueryPanel ast={parsedQuery} />
+            ) : parseState === 'parser-error' || parseState === 'backend-unavailable' ? (
+              <ParseErrorPanel message={parseError} backendUnavailable={parseState === 'backend-unavailable'} />
+            ) : (
+              <PlaceholderPanel kind="results" />
+            )}
             <PlaceholderPanel kind="plan" />
           </div>
         </div>

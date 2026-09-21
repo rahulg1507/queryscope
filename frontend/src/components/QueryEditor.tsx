@@ -3,10 +3,11 @@ import { Code2, Play } from 'lucide-react'
 type QueryEditorProps = {
   query: string
   onQueryChange: (query: string) => void
-  onRun: () => void
+  onRun: () => void | Promise<void>
+  isParsing: boolean
 }
 
-export function QueryEditor({ query, onQueryChange, onRun }: QueryEditorProps) {
+export function QueryEditor({ query, onQueryChange, onRun, isParsing }: QueryEditorProps) {
   return (
     <section className="workspace-card editor-card" aria-labelledby="query-editor-title">
       <div className="card-heading">
@@ -27,9 +28,9 @@ export function QueryEditor({ query, onQueryChange, onRun }: QueryEditorProps) {
       />
       <div className="editor-footer">
         <p id="editor-note">SQL execution will be available as the QueryScope engine evolves.</p>
-        <button className="run-button" type="button" onClick={onRun}>
+        <button className="run-button" type="button" onClick={() => void onRun()} disabled={isParsing}>
           <Play size={15} fill="currentColor" />
-          Run query
+          {isParsing ? 'Parsing…' : 'Run query'}
         </button>
       </div>
     </section>
