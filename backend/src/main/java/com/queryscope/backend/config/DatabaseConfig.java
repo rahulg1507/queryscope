@@ -27,7 +27,11 @@ public class DatabaseConfig {
     }
 
     @Bean
-    public QueryExecutor queryExecutor(ExecutionPlanBuilder planBuilder, ExecutionPlanExecutor planExecutor) {
-        return new InMemoryQueryExecutor(planBuilder, planExecutor);
+    public QueryExecutor queryExecutor(
+            Database database,
+            ExecutionPlanBuilder planBuilder,
+            ExecutionPlanExecutor planExecutor
+    ) {
+        return new InMemoryQueryExecutor(database, planBuilder, planExecutor);
     }
 }

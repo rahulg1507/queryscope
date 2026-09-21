@@ -1,0 +1,32 @@
+import { CheckCircle2, GitBranch } from 'lucide-react'
+import type { OptimizationInfo } from '../api/query'
+
+type OptimizerPanelProps = {
+  optimization: OptimizationInfo | null | undefined
+}
+
+export function OptimizerPanel({ optimization }: OptimizerPanelProps) {
+  return (
+    <section className="workspace-card optimizer-card" aria-labelledby="optimizer-panel-title">
+      <div className="card-heading compact-heading">
+        <div>
+          <div className="eyebrow"><GitBranch size={13} /> OPTIMIZER</div>
+          <h2 id="optimizer-panel-title">Why this plan?</h2>
+        </div>
+        {optimization ? <span className="panel-state">{optimization.mode} MODE</span> : <span className="panel-state">WAITING</span>}
+      </div>
+      {optimization ? (
+        <div className="optimizer-trace">
+          {optimization.rulesApplied.length ? optimization.rulesApplied.map((trace, index) => (
+            <article className="optimizer-rule" key={`${trace.rule}-${index}`}>
+              <CheckCircle2 size={15} />
+              <div><strong>{trace.rule.replaceAll('_', ' ')}</strong><span>→ {trace.decision.replaceAll('_', ' ')}</span><p>{trace.reason}</p></div>
+            </article>
+          )) : <p className="schema-muted">No rewrite rules were needed for this plan.</p>}
+        </div>
+      ) : (
+        <div className="optimizer-placeholder"><p>Run a query to see the deterministic rule-based optimizer trace.</p></div>
+      )}
+    </section>
+  )
+}

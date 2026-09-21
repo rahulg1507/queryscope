@@ -1,6 +1,7 @@
 export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
 export type JoinStrategy = 'NESTED_LOOP' | 'HASH'
 export type ScanStrategy = 'TABLE' | 'INDEX'
+export type ExecutionMode = 'AUTO' | 'MANUAL'
 
 export class ParseApiError extends Error {
   readonly kind: QueryApiErrorKind
@@ -26,6 +27,15 @@ export type QueryResult = {
   rowCount: number
   metrics: { rowsScanned: number; rowsReturned: number }
   executionPlan: ExecutionPlanNode
+  optimization?: OptimizationInfo | null
+}
+
+export type OptimizationTrace = { rule: string; decision: string; reason: string }
+export type OptimizationInfo = {
+  mode: ExecutionMode
+  originalPlan: ExecutionPlanNode
+  optimizedPlan: ExecutionPlanNode
+  rulesApplied: OptimizationTrace[]
 }
 
 export type ExecutionPlanNode = {
@@ -36,7 +46,7 @@ export type ExecutionPlanNode = {
   children: ExecutionPlanNode[]
 }
 
-async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', options?: { joinStrategy?: JoinStrategy; scanStrategy?: ScanStrategy }) {
+async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', options?: { mode?: ExecutionMode; joinStrategy?: JoinStrategy; scanStrategy?: ScanStrategy }) {
   try {
     const response = await fetch(path, {
       method: 'POST',
@@ -58,8 +68,8 @@ export async function parseQuery(sql: string): Promise<ParsedQuery> {
   return await postSql('/api/query/parse', sql, 'parser') as ParsedQuery
 }
 
-export async function executeQuery(sql: string, joinStrategy: JoinStrategy = 'NESTED_LOOP', scanStrategy: ScanStrategy = 'TABLE'): Promise<QueryResult> {
-  return await postSql('/api/query/execute', sql, 'execution', { joinStrategy, scanStrategy }) as QueryResult
+export async function executeQuery(sql: string, joinStrategy: JoinStrategy = 'NESTED_LOOP', scanStrategy: ScanStrategy = 'TABLE', mode: ExecutionMode = 'AUTO'): Promise<QueryResult> {
+  return await postSql('/api/query/execute', sql, 'execution', { joinStrategy, scanStrategy, mode }) as QueryResult
 }
 
 export type SchemaColumn = { name: string; type: string }

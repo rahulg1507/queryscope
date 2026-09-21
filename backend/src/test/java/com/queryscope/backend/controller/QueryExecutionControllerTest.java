@@ -64,7 +64,7 @@ class QueryExecutionControllerTest {
     void executesJoinAndReturnsBranchingPlanMetadata() throws Exception {
         mockMvc.perform(post("/api/query/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id;\"}"))
+                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id;\",\"mode\":\"MANUAL\",\"joinStrategy\":\"NESTED_LOOP\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.columns[0].name").value("users.name"))
                 .andExpect(jsonPath("$.columns[1].name").value("expenses.amount"))
@@ -108,6 +108,36 @@ class QueryExecutionControllerTest {
                         .content("{\"sql\":\"SELECT * FROM users JOIN expenses ON users.id = expenses.user_id\",\"joinStrategy\":\"sort_merge\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid join strategy 'sort_merge'. Supported strategies: NESTED_LOOP, HASH."));
+    }
+
+    @Test
+    void defaultsToAutoModeAndExposesOptimizerTrace() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.optimization.mode").value("AUTO"))
+                .andExpect(jsonPath("$.optimization.rulesApplied[0].rule").value("EQUALITY_JOIN"))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("HASH_JOIN"));
+    }
+
+    @Test
+    void acceptsNestedExecutionSettingsForManualMode() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT users.name, expenses.amount FROM users JOIN expenses ON users.id = expenses.user_id\",\"execution\":{\"mode\":\"MANUAL\",\"joinStrategy\":\"NESTED_LOOP\",\"scanStrategy\":\"TABLE\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.optimization.mode").value("MANUAL"))
+                .andExpect(jsonPath("$.executionPlan.children[0].type").value("NESTED_LOOP_JOIN"));
+    }
+
+    @Test
+    void rejectsUnknownExecutionMode() throws Exception {
+        mockMvc.perform(post("/api/query/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sql\":\"SELECT * FROM users\",\"mode\":\"COST_BASED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid execution mode 'COST_BASED'. Supported modes: AUTO, MANUAL."));
     }
 
     @Test
@@ -163,7 +193,7 @@ class QueryExecutionControllerTest {
     void rejectsUnknownScanStrategyAndMissingUsableIndex() throws Exception {
         mockMvc.perform(post("/api/query/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"sql\":\"SELECT * FROM users WHERE age = 19\",\"scanStrategy\":\"INDEX\"}"))
+                        .content("{\"sql\":\"SELECT * FROM users WHERE age = 19\",\"mode\":\"MANUAL\",\"scanStrategy\":\"INDEX\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("No usable index exists for predicate 'age = 19'."));
 

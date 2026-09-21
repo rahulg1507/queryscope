@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, BookOpen, CircleHelp, Layers3, Settings2 } from 'lucide-react'
 import { checkBackendHealth, type BackendStatus } from './api/health'
-import { createIndex, executeQuery, getSchema, parseQuery, ParseApiError, type JoinStrategy, type ParsedQuery, type QueryResult, type ScanStrategy, type SchemaResponse } from './api/query'
+import { createIndex, executeQuery, getSchema, parseQuery, ParseApiError, type ExecutionMode, type JoinStrategy, type ParsedQuery, type QueryResult, type ScanStrategy, type SchemaResponse } from './api/query'
 import { BackendStatus as BackendStatusIndicator } from './components/BackendStatus'
 import { BrandMark } from './components/BrandMark'
 import { ExecutionErrorPanel } from './components/ExecutionErrorPanel'
@@ -12,6 +12,7 @@ import { PlaceholderPanel } from './components/PlaceholderPanel'
 import { QueryEditor } from './components/QueryEditor'
 import { ResultsPanel } from './components/ResultsPanel'
 import { SchemaIndexPanel } from './components/SchemaIndexPanel'
+import { OptimizerPanel } from './components/OptimizerPanel'
 import { StrategyComparisonPanel, type StrategyComparison } from './components/StrategyComparisonPanel'
 
 const starterQuery = 'SELECT name, age\nFROM users\nWHERE age > 18;'
@@ -39,6 +40,7 @@ function App() {
   const [executeError, setExecuteError] = useState('')
   const [joinStrategy, setJoinStrategy] = useState<JoinStrategy>('NESTED_LOOP')
   const [scanStrategy, setScanStrategy] = useState<ScanStrategy>('TABLE')
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('AUTO')
   const [schema, setSchema] = useState<SchemaResponse | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(true)
   const [schemaError, setSchemaError] = useState('')
@@ -118,7 +120,7 @@ function App() {
       parsed = true
       setParsedQuery(ast)
       setParseState('success')
-      setQueryResult(await executeQuery(query, joinStrategy, scanStrategy))
+      setQueryResult(await executeQuery(query, joinStrategy, scanStrategy, executionMode))
       setExecuteState('success')
     } catch (error) {
       if (!parsed) {
@@ -142,8 +144,8 @@ function App() {
       setParsedQuery(ast)
       setParseState('success')
       const [nestedLoop, hash] = await Promise.all([
-        executeQuery(query, 'NESTED_LOOP'),
-        executeQuery(query, 'HASH'),
+        executeQuery(query, 'NESTED_LOOP', 'TABLE', 'MANUAL'),
+        executeQuery(query, 'HASH', 'TABLE', 'MANUAL'),
       ])
       setComparison({ nestedLoop, hash, equivalent: resultsAreEquivalent(nestedLoop, hash) })
       setComparisonState('success')
@@ -205,6 +207,8 @@ function App() {
             onJoinStrategyChange={setJoinStrategy}
             scanStrategy={scanStrategy}
             onScanStrategyChange={setScanStrategy}
+            executionMode={executionMode}
+            onExecutionModeChange={setExecutionMode}
             onCompare={handleCompare}
             isParsing={parseState === 'parsing'}
             isExecuting={executeState === 'executing'}
@@ -224,6 +228,7 @@ function App() {
               <ResultsPanel result={queryResult} isExecuting={executeState === 'executing'} />
             )}
             <ExecutionPlanPanel plan={queryResult?.executionPlan ?? null} isExecuting={executeState === 'executing'} />
+            <OptimizerPanel optimization={queryResult?.optimization} />
             <StrategyComparisonPanel comparison={comparison} error={comparisonError} isComparing={comparisonState === 'comparing'} />
           </div>
         </div>

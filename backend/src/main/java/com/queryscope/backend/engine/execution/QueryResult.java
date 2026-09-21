@@ -4,6 +4,8 @@ import com.queryscope.backend.engine.storage.Row;
 import com.queryscope.backend.engine.storage.TableSchema;
 import com.queryscope.backend.engine.plan.ExecutionPlanNode;
 import com.queryscope.backend.engine.plan.ExecutionPlanNodeDto;
+import com.queryscope.backend.dto.OptimizationInfo;
+import com.queryscope.backend.engine.optimizer.OptimizationResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,10 +15,21 @@ public record QueryResult(
         List<List<Object>> rows,
         int rowCount,
         ExecutionMetrics metrics,
-        ExecutionPlanNodeDto executionPlan
+        ExecutionPlanNodeDto executionPlan,
+        OptimizationInfo optimization
 ) {
     public QueryResult(List<ResultColumn> columns, List<List<Object>> rows, int rowCount, ExecutionMetrics metrics) {
-        this(columns, rows, rowCount, metrics, null);
+        this(columns, rows, rowCount, metrics, null, null);
+    }
+
+    public QueryResult(
+            List<ResultColumn> columns,
+            List<List<Object>> rows,
+            int rowCount,
+            ExecutionMetrics metrics,
+            ExecutionPlanNodeDto executionPlan
+    ) {
+        this(columns, rows, rowCount, metrics, executionPlan, null);
     }
 
     public QueryResult {
@@ -33,6 +46,10 @@ public record QueryResult(
     }
 
     public static QueryResult from(OperatorResult result, ExecutionPlanNode plan) {
+        return from(result, plan, null);
+    }
+
+    public static QueryResult from(OperatorResult result, ExecutionPlanNode plan, OptimizationResult optimizationResult) {
         TableSchema schema = result.schema();
         List<ResultColumn> columns = schema.columns().stream()
                 .map(column -> new ResultColumn(column.name(), column.type()))
@@ -42,8 +59,12 @@ public record QueryResult(
                 .map(values -> schema.columns().stream().map(column -> values.get(column.name())).toList())
                 .toList();
         int rowsScanned = findTableScanInput(result.metrics());
+        ExecutionPlanNodeDto executedPlan = plan == null ? null : ExecutionPlanNodeDto.from(plan, result.metrics());
         return new QueryResult(columns, rows, rows.size(), new ExecutionMetrics(rowsScanned, rows.size()),
-                plan == null ? null : ExecutionPlanNodeDto.from(plan, result.metrics()));
+                executedPlan,
+                optimizationResult == null || executedPlan == null
+                        ? null
+                        : OptimizationInfo.from(optimizationResult, executedPlan));
     }
 
     private static int findTableScanInput(OperatorMetrics metrics) {

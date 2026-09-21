@@ -148,6 +148,12 @@ const indexQueryResult = {
       children: [],
     }],
   },
+  optimization: {
+    mode: 'AUTO',
+    originalPlan: queryResult.executionPlan,
+    optimizedPlan: queryResult.executionPlan,
+    rulesApplied: [{ rule: 'MATCHING_INDEX', decision: 'USE_INDEX_SCAN', reason: 'Index idx_age exists on users.age.' }],
+  },
 }
 
 function healthyFetch(
@@ -204,12 +210,14 @@ describe('App', () => {
     const createCall = fetchMock.mock.calls.find(([input]) => input.toString() === '/api/schema/indexes')
     expect(createCall?.[1]?.body).toContain('idx_amount')
 
+    await user.selectOptions(screen.getByLabelText('Execution mode'), 'MANUAL')
     const scanStrategy = screen.getByLabelText('Scan strategy')
     expect(scanStrategy).toBeEnabled()
     await user.selectOptions(scanStrategy, 'INDEX')
     await user.click(screen.getByRole('button', { name: 'Run query' }))
     await waitFor(() => expect(screen.getByText('INDEX SCAN')).toBeInTheDocument())
     expect(screen.getByText('idx_age')).toBeInTheDocument()
+    expect(screen.getByText('MATCHING INDEX')).toBeInTheDocument()
   })
 
   it('shows a catalog error when the schema endpoint is unavailable', async () => {
@@ -273,6 +281,7 @@ describe('App', () => {
     render(<App />)
 
     await user.click(screen.getByRole('button', { name: /SELECT users\.name, expenses\.amount/ }))
+    await user.selectOptions(screen.getByLabelText('Execution mode'), 'MANUAL')
     const strategy = screen.getByLabelText('Join strategy')
     expect(strategy).toBeEnabled()
     await user.selectOptions(strategy, 'HASH')

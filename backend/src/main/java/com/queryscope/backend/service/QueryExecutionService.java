@@ -5,6 +5,7 @@ import com.queryscope.backend.engine.execution.QueryExecutor;
 import com.queryscope.backend.engine.execution.QueryResult;
 import com.queryscope.backend.engine.plan.JoinStrategy;
 import com.queryscope.backend.engine.plan.ScanStrategy;
+import com.queryscope.backend.engine.plan.ExecutionMode;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,15 +20,24 @@ public class QueryExecutionService {
     }
 
     public QueryResult execute(String sql) {
-        return execute(sql, JoinStrategy.NESTED_LOOP);
+        return execute(sql, ExecutionMode.AUTO, JoinStrategy.NESTED_LOOP, ScanStrategy.TABLE);
     }
 
     public QueryResult execute(String sql, JoinStrategy joinStrategy) {
-        return execute(sql, joinStrategy, ScanStrategy.TABLE);
+        return execute(sql, ExecutionMode.MANUAL, joinStrategy, ScanStrategy.TABLE);
     }
 
     public QueryResult execute(String sql, JoinStrategy joinStrategy, ScanStrategy scanStrategy) {
+        return execute(sql, ExecutionMode.MANUAL, joinStrategy, scanStrategy);
+    }
+
+    public QueryResult execute(
+            String sql,
+            ExecutionMode mode,
+            JoinStrategy joinStrategy,
+            ScanStrategy scanStrategy
+    ) {
         SelectStatement statement = queryParserService.parse(sql);
-        return queryExecutor.execute(statement, joinStrategy, scanStrategy);
+        return queryExecutor.execute(statement, mode, joinStrategy, scanStrategy);
     }
 }

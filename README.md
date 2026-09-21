@@ -82,25 +82,40 @@ npm run build
 - A hand-built order-4 B+ tree indexes integer and string columns. Indexes are populated from existing rows and maintained for later inserts. Exact and inclusive/exclusive range lookups return row positions, including duplicate keys.
 - Scan strategy is selected explicitly per execution with `TABLE` (the default) or `INDEX`; QueryScope does not optimize or automatically choose an index. An index scan requires a matching single-column index and a `WHERE` equality/range predicate.
 - `GET /api/schema` exposes tables, columns, and indexes. `POST /api/schema/indexes` accepts `{ "name": "idx_amount", "table": "expenses", "column": "amount" }` and creates an index.
+- The rule-based optimizer runs in `AUTO` mode by default. It prefers an existing matching index for eligible single-table predicates, chooses hash joins for equality joins over supported key types, and falls back deterministically to table scans or nested-loop joins.
+- `MANUAL` mode preserves the requested `TABLE`/`INDEX` and `NESTED_LOOP`/`HASH` strategies. Every execution returns structured optimizer metadata with the original plan, optimized physical plan, applied rule IDs, decisions, and reasons.
 - The frontend can parse SQL to inspect its AST or run it to display result rows, execution metrics, and the generated plan.
 
 ## Execution plan architecture
 
-The AST describes what the user wrote. It is deliberately separate from the execution plan, which describes how QueryScope currently executes that statement:
+The AST describes what the user wrote. The initial plan is the logical execution shape; the optimizer then rewrites eligible nodes into a physical plan that describes how QueryScope executes the statement:
 
 ```text
 AST
  ↓
 ExecutionPlanBuilder
  ↓
-ExecutionPlan
+Initial logical plan
+ ↓
+Rule-based optimizer
+ ↓
+Physical ExecutionPlan
  ↓
 ExecutionPlanExecutor
  ↓
 QueryResult + executionPlan
 ```
 
-The current pipeline is a straightforward operator tree with no optimization:
+The optimizer applies rules in this order: validate the initial plan, optimize child scans, choose an eligible join strategy, optimize aggregate children, then preserve filter and projection semantics. It does not push predicates down, reorder joins, create indexes, estimate cardinality, or measure wall-clock time.
+
+For an `AUTO` query with a matching index, the physical plan is:
+
+```text
+Projection (columns: description, amount)
+└── IndexScan (idx_amount, predicate: amount = 300)
+```
+
+Without a matching index, the physical plan remains:
 
 ```text
 Projection (columns: name, age)
@@ -151,6 +166,23 @@ GROUP BY user_id;
 
 The plan for this query is `Projection → Aggregate → Filter → TableScan`. For a joined aggregate, the aggregate sits above the selected nested-loop or hash join. Every selected non-aggregate column must appear in `GROUP BY`; QueryScope does not choose arbitrary values.
 
+Example optimizer response fragment:
+
+```json
+{
+  "optimization": {
+    "mode": "AUTO",
+    "rulesApplied": [
+      {
+        "rule": "MATCHING_INDEX",
+        "decision": "USE_INDEX_SCAN",
+        "reason": "Index idx_amount exists on expenses.amount and supports predicate amount = 300."
+      }
+    ]
+  }
+}
+```
+
 Example index workflow:
 
 ```http
@@ -186,11 +218,13 @@ Example AST response:
 ## API
 
 - `POST /api/query/parse` accepts `{ "sql": "..." }` and returns an AST for supported SQL.
-- `POST /api/query/execute` accepts `{ "sql": "...", "joinStrategy": "NESTED_LOOP" | "HASH", "scanStrategy": "TABLE" | "INDEX" }` and returns `{ "columns": [...], "rows": [...], "rowCount": number, "metrics": { "rowsScanned": number, "rowsReturned": number }, "executionPlan": {...} }`. Both strategies are optional and default to `NESTED_LOOP` and `TABLE`; values are case-insensitive.
+- `POST /api/query/execute` accepts `{ "sql": "...", "mode": "AUTO" | "MANUAL", "joinStrategy": "NESTED_LOOP" | "HASH", "scanStrategy": "TABLE" | "INDEX" }` and returns result data, the optimized `executionPlan`, and `optimization` metadata. `mode` defaults to `AUTO`; strategy fields are case-insensitive.
+- The same settings can be supplied under an `execution` object, for example `{ "sql": "...", "execution": { "mode": "MANUAL", "joinStrategy": "HASH", "scanStrategy": "TABLE" } }`. In `AUTO`, explicit strategy fields are ignored; in `MANUAL`, they are honored.
+- `optimization.rulesApplied` contains structured `{ "rule", "decision", "reason" }` entries. It can include `MATCHING_INDEX`, `NO_MATCHING_INDEX`, `EQUALITY_JOIN`, `HASH_JOIN_FALLBACK`, or `MANUAL_STRATEGIES`.
 - `GET /api/schema` returns `{ "tables": [{ "name": "expenses", "columns": [{ "name": "amount", "type": "INTEGER" }], "indexes": [{ "name": "idx_amount", "column": "amount" }] }] }`.
 - `POST /api/schema/indexes` accepts `{ "name": "idx_amount", "table": "expenses", "column": "amount" }` and returns the updated schema. Indexes currently support one INTEGER or STRING column per index.
 - Aggregate queries use the same execute endpoint and return deterministic result column names such as `SUM(amount)` and `AVG(amount)`. Aggregate plan details include `groupBy`, `functions`, `groups`, `inputRows`, and `outputRows`.
-- On non-join queries, a supplied `joinStrategy` is accepted but has no effect; table scans, filters, and projections keep their existing plan.
+- On non-join queries, `joinStrategy` has no effect. In `AUTO`, scan selection is rule-based; in `MANUAL`, table scans, filters, and projections honor the selected scan strategy.
 - The execute response also includes `executionPlan`, a recursive tree whose nodes expose `type`, operator-specific `details`, `inputRows`, `outputRows`, and `children`.
 - Invalid SQL returns HTTP 400 with `{ "error": "..." }`.
 
@@ -206,8 +240,9 @@ The current demo database supports schema inspection and index creation, but rem
 6. ~~Joins~~
 7. ~~GROUP BY and aggregates~~
 8. ~~B+ tree indexes and index scans~~
-9. Query optimizer
-10. Benchmarking
-11. Visualization
+9. ~~Rule-based query optimizer~~
+10. Cost-based optimization
+11. Benchmarking
+12. Visualization
 
-The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, `HAVING`, `ORDER BY`, `LIMIT`, `MIN`, `MAX`, `DISTINCT`, window functions, `NULL` semantics, mutations, composite/unique/partial/expression indexes, `DROP INDEX`, query optimization, persistence, and cost/timing estimates. The plan is generated directly from the parsed query; predicate pushdown, join ordering, and automatic index selection are future work.
+The current milestone intentionally omits `LEFT`, `RIGHT`, `FULL`, `CROSS`, and `NATURAL JOIN`, multiple join chains, `USING`, non-equality joins, subqueries, `HAVING`, `ORDER BY`, `LIMIT`, `MIN`, `MAX`, `DISTINCT`, window functions, `NULL` semantics, mutations, composite/unique/partial/expression indexes, `DROP INDEX`, persistence, and cost/timing estimates. QueryScope does not yet use a cost model. Future optimizer work includes statistics, cardinality estimation, selectivity estimation, cost-based plan selection, join reordering, and predicate pushdown.

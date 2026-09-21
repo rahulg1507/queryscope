@@ -1,5 +1,5 @@
 import { Code2, GitCompare, Play } from 'lucide-react'
-import type { JoinStrategy, ScanStrategy } from '../api/query'
+import type { ExecutionMode, JoinStrategy, ScanStrategy } from '../api/query'
 
 type QueryEditorProps = {
   query: string
@@ -11,6 +11,8 @@ type QueryEditorProps = {
   onJoinStrategyChange: (strategy: JoinStrategy) => void
   scanStrategy: ScanStrategy
   onScanStrategyChange: (strategy: ScanStrategy) => void
+  executionMode: ExecutionMode
+  onExecutionModeChange: (mode: ExecutionMode) => void
   onCompare: () => void | Promise<void>
   isParsing: boolean
   isExecuting: boolean
@@ -28,7 +30,7 @@ const examples = [
   'SELECT user_id, AVG(amount)\nFROM expenses\nGROUP BY user_id;',
 ]
 
-export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, scanStrategy, onScanStrategyChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
+export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, scanStrategy, onScanStrategyChange, executionMode, onExecutionModeChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
   const isBusy = isParsing || isExecuting || isComparing
   const hasJoin = /\bjoin\b/i.test(query)
   const hasWhere = /\bwhere\b/i.test(query)
@@ -64,18 +66,31 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSel
         </div>
       </div>
       <div className="strategy-controls">
+        <label htmlFor="execution-mode">Execution mode</label>
+        <select
+          id="execution-mode"
+          value={executionMode}
+          onChange={(event) => onExecutionModeChange(event.target.value as ExecutionMode)}
+          disabled={isBusy}
+        >
+          <option value="AUTO">Auto</option>
+          <option value="MANUAL">Manual</option>
+        </select>
+        <span>{executionMode === 'AUTO' ? 'QueryScope selects eligible physical strategies using deterministic rules.' : 'Manual mode honors the selected scan and join strategies.'}</span>
+      </div>
+      <div className="strategy-controls">
         <label htmlFor="join-strategy">Join strategy</label>
         <select
           id="join-strategy"
           value={joinStrategy}
           onChange={(event) => onJoinStrategyChange(event.target.value as JoinStrategy)}
-          disabled={!hasJoin || isBusy}
+          disabled={!hasJoin || executionMode !== 'MANUAL' || isBusy}
         >
           <option value="NESTED_LOOP">Nested Loop</option>
           <option value="HASH">Hash Join</option>
         </select>
         <span>{hasJoin ? 'Selected manually; no optimizer is applied.' : 'Select a JOIN query to choose a strategy.'}</span>
-        <button className="secondary-button compare-button" type="button" onClick={() => void onCompare()} disabled={!hasJoin || isBusy}>
+        <button className="secondary-button compare-button" type="button" onClick={() => void onCompare()} disabled={!hasJoin || executionMode !== 'MANUAL' || isBusy}>
           <GitCompare size={14} />
           {isComparing ? 'Comparing…' : 'Compare strategies'}
         </button>
@@ -86,12 +101,12 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSel
           id="scan-strategy"
           value={scanStrategy}
           onChange={(event) => onScanStrategyChange(event.target.value as ScanStrategy)}
-          disabled={!hasWhere || isBusy}
+          disabled={!hasWhere || executionMode !== 'MANUAL' || isBusy}
         >
           <option value="TABLE">Table Scan</option>
           <option value="INDEX">Index Scan</option>
         </select>
-        <span>{hasWhere ? 'Index scans require a matching single-column index.' : 'Add a WHERE predicate to choose an index scan.'}</span>
+        <span>{executionMode === 'AUTO' ? 'Auto mode chooses an existing matching index when eligible.' : hasWhere ? 'Index scans require a matching single-column index.' : 'Add a WHERE predicate to choose an index scan.'}</span>
       </div>
       <div className="examples-row" aria-label="Example queries">
         <span>EXAMPLES</span>
