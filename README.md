@@ -33,8 +33,13 @@ No Firebase, Firestore, authentication, or external application database is used
 From `backend/`:
 
 ```bash
-mvn test
-mvn spring-boot:run
+# Windows PowerShell
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+
+# macOS/Linux
+./mvnw test
+./mvnw spring-boot:run
 ```
 
 The API is available at `http://localhost:8080`.
