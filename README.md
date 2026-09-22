@@ -18,7 +18,7 @@ This is an educational and experimental project, not a production database, Post
 - Execution-plan visualization with operator metrics
 - Table statistics, cardinality estimation, and cost-based optimization
 - Deterministic benchmark scenarios using operation counts instead of wall-clock timing
-- Interactive React workspace with Docs, Help, Settings, Roadmap, and query history
+- Interactive React workspace with Docs, Help, Settings, and query history
 
 ## Architecture
 
@@ -125,7 +125,7 @@ GitHub Actions runs these checks on every push and pull request without requirin
 
 - `backend/Dockerfile` builds the Spring Boot JAR in a Maven stage and runs it as a non-root user on a JRE image.
 - `frontend/Dockerfile` builds Vite assets with Node and serves them from nginx.
-- `frontend/nginx.conf` provides SPA fallback for `/workspace`, `/docs`, `/benchmarks`, and `/roadmap`, proxies `/api/` to the backend service, and applies immutable caching only to hashed assets.
+- `frontend/nginx.conf` provides SPA fallback for `/workspace`, `/docs`, and `/benchmarks`, proxies `/api/` to the backend service, and applies immutable caching only to hashed assets.
 - `frontend/.env.example` documents `VITE_API_BASE_URL`; blank keeps the recommended same-origin `/api` behavior.
 - `PORT` and `QUERYSCOPE_ALLOWED_ORIGINS` configure the Spring Boot runtime without changing local defaults.
 
@@ -193,12 +193,11 @@ npm run build
 
 ## Frontend workspace
 
-The frontend has four direct routes, all available after a browser refresh:
+The frontend has three direct routes, all available after a browser refresh:
 
 - `/workspace` — SQL editor, schema explorer, query history, AST, results, actual execution metrics, physical plan, optimizer details, and strategy comparison.
 - `/docs` — supported SQL and architecture guide with copyable examples. `Use in Workspace` loads an example without running it.
 - `/benchmarks` — deterministic performance lab for scan, join, and optimizer scenarios.
-- `/roadmap` — completed milestones and future engine work.
 
 Workspace shortcuts:
 
@@ -401,7 +400,7 @@ Operation counts are primary because they are deterministic. Wall-clock timing i
 
 The current demo database supports schema inspection and index creation, but remains intentionally limited: table creation, row mutation, persistence, composite/unique/partial/expression indexes, and `DROP INDEX` are future work.
 
-## Roadmap
+## Future work
 
 1. ~~SQL lexer/parser~~
 2. ~~AST~~

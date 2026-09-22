@@ -11,19 +11,28 @@ afterEach(() => {
 })
 
 describe('productized workspace navigation', () => {
-  it('navigates between the real public routes', async () => {
+  it('navigates between the remaining public routes', async () => {
     window.history.pushState({}, '', '/docs')
     const user = userEvent.setup()
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Docs' })).toBeInTheDocument()
     await user.click(screen.getAllByRole('link', { name: /Benchmarks/ })[0])
     expect(screen.getByRole('heading', { name: 'Benchmarks' })).toBeInTheDocument()
-    await user.click(screen.getAllByRole('link', { name: /Roadmap/ })[0])
-    expect(screen.getByRole('heading', { name: 'Roadmap' })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('link', { name: /Workspace/ })[0])
+    expect(screen.getByRole('heading', { name: 'Query workspace' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Roadmap/ })).not.toBeInTheDocument()
+  })
+
+  it('falls back to Workspace for the removed roadmap URL', () => {
+    window.history.pushState({}, '', '/roadmap')
+    render(<App />)
+
+    expect(screen.getByRole('heading', { name: 'Query workspace' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Roadmap/ })).not.toBeInTheDocument()
   })
 
   it('opens accessible Help and Settings dialogs and closes them with Escape', async () => {
-    window.history.pushState({}, '', '/roadmap')
+    window.history.pushState({}, '', '/workspace')
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: 'Open help' }))

@@ -1,4 +1,4 @@
-import { BookOpen, BarChart3, CircleHelp, Layers3, Menu, Map, Settings2, X } from 'lucide-react'
+import { BookOpen, BarChart3, CircleHelp, Layers3, Menu, Settings2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { BrandMark } from './BrandMark'
 import { BackendStatus as BackendStatusIndicator } from './BackendStatus'
@@ -11,7 +11,6 @@ const items: Array<{ route: Route; label: string; icon: typeof Layers3 }> = [
   { route: '/workspace', label: 'Workspace', icon: Layers3 },
   { route: '/docs', label: 'Docs', icon: BookOpen },
   { route: '/benchmarks', label: 'Benchmarks', icon: BarChart3 },
-  { route: '/roadmap', label: 'Roadmap', icon: Map },
 ]
 
 export function Navigation({ route, backendStatus, onNavigate, onHelp, onSettings }: NavigationProps) {

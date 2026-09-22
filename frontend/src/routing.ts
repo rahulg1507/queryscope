@@ -1,4 +1,4 @@
-export const routes = ['/workspace', '/docs', '/benchmarks', '/roadmap'] as const
+export const routes = ['/workspace', '/docs', '/benchmarks'] as const
 export type Route = typeof routes[number]
 
 export function routeFromLocation(): Route {

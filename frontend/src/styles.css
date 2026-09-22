@@ -45,7 +45,6 @@ h1 { color: #f0f6ff; font-size: clamp(30px, 4vw, 43px); line-height: 1.1; letter
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4cd58e; box-shadow: 0 0 8px #4cd58e; }
 .notice-banner { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border: 1px solid #2a4770; border-radius: 6px; color: #9eb9d9; background: #0d1c31; font-size: 12px; }
 .notice-mark { display: grid; flex: 0 0 auto; place-items: center; width: 17px; height: 17px; border: 1px solid #4787d5; border-radius: 50%; color: #67aefc; font: 600 11px Georgia, serif; }
-.notice-banner a { display: flex; align-items: center; gap: 4px; margin-left: auto; color: #67aefc; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .workspace-grid { margin-top: 22px; }
 .workspace-card { border: 1px solid #243850; border-radius: 8px; background: linear-gradient(145deg, rgba(17, 31, 51, .9), rgba(11, 22, 37, .9)); box-shadow: 0 12px 40px rgba(0,0,0,.13); }
 .schema-card { padding: 20px 25px; }
@@ -243,17 +242,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .docs-example strong { color: #dbeafd; font-size: 13px; }
 .docs-example pre { overflow-x: auto; margin: 10px 0; color: #b9d8f5; font: 11px/1.6 'DM Mono', monospace; white-space: pre-wrap; }
 .docs-example > div { display: flex; flex-wrap: wrap; gap: 7px; }
-.roadmap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.roadmap-column { padding: 23px; border: 1px solid #243850; border-radius: 8px; background: #0d1b2c; }
-.roadmap-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
-.roadmap-heading span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; font-weight: 800; }
-.roadmap-heading.completed span { color: #70dda5; background: #103528; }
-.roadmap-heading.future span { color: #82bfff; background: #163152; }
-.roadmap-heading h2 { margin: 0; }
-.roadmap-item { display: flex; align-items: flex-start; gap: 9px; padding: 11px 0; border-top: 1px solid #1b3049; color: #a6bbd2; font-size: 12px; line-height: 1.5; }
-.roadmap-check { color: #6cdfa4; font-weight: 800; }
-.roadmap-dot { flex: 0 0 auto; width: 6px; height: 6px; margin: 6px 3px 0; border-radius: 50%; background: #68aef4; }
-.roadmap-cta { margin-top: 18px; }
 .dialog-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(2, 7, 14, .72); }
 .dialog { width: min(510px, 100%); padding: 22px; border: 1px solid #315071; border-radius: 9px; background: #0e1d30; box-shadow: 0 20px 80px rgba(0,0,0,.45); }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
@@ -293,7 +281,6 @@ kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #c
   .page-intro { display: block; }
   .version-badge { width: fit-content; margin-top: 24px; }
   .notice-banner { align-items: flex-start; flex-wrap: wrap; }
-  .notice-banner a { width: 100%; margin: 3px 0 0 27px; }
   .editor-card { padding: 20px 16px 16px; }
   .card-heading { gap: 10px; }
   .coming-soon { font-size: 8px; }
@@ -309,7 +296,7 @@ kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #c
   .bottom-panels { grid-template-columns: 1fr; }
   .history-entry { grid-template-columns: 1fr auto; }
   .history-entry > div { grid-column: 1 / -1; }
-  .docs-layout, .roadmap-grid { grid-template-columns: 1fr; }
+  .docs-layout { grid-template-columns: 1fr; }
   .docs-toc { position: static; }
   .help-grid { grid-template-columns: 1fr; }
   .dialog { max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px; }
