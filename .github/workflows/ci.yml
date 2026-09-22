@@ -62,12 +62,24 @@ jobs:
       - name: Reject generated artifacts and environment files
         shell: bash
         run: |
-          if git ls-files | grep -E '(^|/)(target|dist|node_modules)/'; then
+          forbidden_artifacts="$(git ls-files | awk '$0 ~ /(^|\/)(target|dist|node_modules)\// { print }')"
+          if [ -n "$forbidden_artifacts" ]; then
             echo "Generated build artifacts are tracked."
+            printf '%s\n' "$forbidden_artifacts"
             exit 1
           fi
-          if git ls-files | grep -E '(^|/)\.env($|\.)'; then
+          forbidden_env_files="$(git ls-files | awk '$0 ~ /(^|\/)\.env($|\.)/ && $0 !~ /(^|\/)\.env\.example$/ { print }')"
+          if [ -n "$forbidden_env_files" ]; then
             echo "Environment files must not be tracked."
+            printf '%s\n' "$forbidden_env_files"
+            exit 1
+          fi
+      - name: Require an executable Maven Wrapper
+        shell: bash
+        run: |
+          wrapper_mode="$(git ls-files --stage backend/mvnw | awk '{ print $1 }')"
+          if [ "$wrapper_mode" != "100755" ]; then
+            echo "backend/mvnw must be executable in Git (mode 100755)."
             exit 1
           fi
       - name: Reject obvious private-key material
