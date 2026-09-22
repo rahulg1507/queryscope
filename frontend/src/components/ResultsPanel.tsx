@@ -4,9 +4,10 @@ import type { QueryResult } from '../api/query'
 type ResultsPanelProps = {
   result: QueryResult | null
   isExecuting: boolean
+  showMetrics?: boolean
 }
 
-export function ResultsPanel({ result, isExecuting }: ResultsPanelProps) {
+export function ResultsPanel({ result, isExecuting, showMetrics = true }: ResultsPanelProps) {
   return (
     <section className="workspace-card results-card" aria-labelledby="results-title">
       <div className="card-heading compact-heading">
@@ -20,11 +21,11 @@ export function ResultsPanel({ result, isExecuting }: ResultsPanelProps) {
         </div>
       ) : (
         <div className="results-body">
-          <div className="results-meta">
+          {showMetrics && <div className="results-meta">
             <span><strong>{result.rowCount}</strong> rows</span>
             <span>Scanned <strong>{result.metrics.rowsScanned}</strong></span>
             <span>Returned <strong>{result.metrics.rowsReturned}</strong></span>
-          </div>
+          </div>}
           <div className="table-scroll">
             <table>
               <caption className="sr-only">Query results</caption>

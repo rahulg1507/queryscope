@@ -5,9 +5,11 @@ import { ExecutionPlanNode as ExecutionPlanNodeView } from './ExecutionPlanNode'
 type ExecutionPlanPanelProps = {
   plan: ExecutionPlanNode | null
   isExecuting: boolean
+  showMetrics?: boolean
+  autoExpand?: boolean
 }
 
-export function ExecutionPlanPanel({ plan, isExecuting }: ExecutionPlanPanelProps) {
+export function ExecutionPlanPanel({ plan, isExecuting, showMetrics = true, autoExpand = true }: ExecutionPlanPanelProps) {
   return (
     <section className="workspace-card plan-card" aria-labelledby="execution-plan-title">
       <div className="card-heading compact-heading">
@@ -21,9 +23,7 @@ export function ExecutionPlanPanel({ plan, isExecuting }: ExecutionPlanPanelProp
           <p>Run a supported SELECT query to inspect its execution pipeline.</p>
         </div>
       ) : (
-        <div className="execution-plan-tree" id="execution-plan-title">
-          <ExecutionPlanNodeView node={plan} />
-        </div>
+        autoExpand ? <div className="execution-plan-tree" id="execution-plan-title"><ExecutionPlanNodeView node={plan} showMetrics={showMetrics} /></div> : <details className="plan-collapsed" id="execution-plan-title"><summary>Show execution plan</summary><div className="execution-plan-tree"><ExecutionPlanNodeView node={plan} showMetrics={showMetrics} /></div></details>
       )}
     </section>
   )

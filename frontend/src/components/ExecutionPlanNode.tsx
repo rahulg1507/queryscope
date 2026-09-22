@@ -3,6 +3,7 @@ import type { ExecutionPlanNode as ExecutionPlanNodeData } from '../api/query'
 
 type ExecutionPlanNodeProps = {
   node: ExecutionPlanNodeData
+  showMetrics?: boolean
 }
 
 function labelFor(type: string) {
@@ -19,7 +20,7 @@ function detailValue(value: unknown) {
   return Array.isArray(value) ? value.join(', ') : String(value)
 }
 
-export function ExecutionPlanNode({ node }: ExecutionPlanNodeProps) {
+export function ExecutionPlanNode({ node, showMetrics = true }: ExecutionPlanNodeProps) {
   const Icon = iconFor(node.type)
   const isJoin = node.type === 'NESTED_LOOP_JOIN' || node.type === 'HASH_JOIN'
 
@@ -38,17 +39,17 @@ export function ExecutionPlanNode({ node }: ExecutionPlanNodeProps) {
             </div>
           ))}
         </div>
-        <div className="plan-metrics">
+        {showMetrics && <div className="plan-metrics">
           <span>input <strong>{node.inputRows}</strong></span>
           <span>output <strong>{node.outputRows}</strong></span>
-        </div>
+        </div>}
       </article>
       {node.children.length > 0 && (
         <div className="plan-children">
           {node.children.map((child, index) => (
             <div className="plan-child" key={`${child.type}-${index}`}>
               <ArrowDown className="plan-arrow" size={18} aria-hidden="true" />
-              <ExecutionPlanNode node={child} />
+                <ExecutionPlanNode node={child} showMetrics={showMetrics} />
             </div>
           ))}
         </div>

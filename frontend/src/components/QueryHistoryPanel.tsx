@@ -1,0 +1,7 @@
+import { History, Play, Trash2 } from 'lucide-react'
+import type { QueryHistoryEntry } from '../hooks/useQueryHistory'
+
+type Props = { history: QueryHistoryEntry[]; onLoad: (sql: string) => void; onRunAgain: (sql: string) => void; onRemove: (sql: string) => void; onClear: () => void }
+export function QueryHistoryPanel({ history, onLoad, onRunAgain, onRemove, onClear }: Props) {
+  return <section className="workspace-card history-card" aria-labelledby="history-title"><div className="card-heading compact-heading"><div><div className="eyebrow"><History size={13} /> QUERY HISTORY</div><h2 id="history-title">Recent queries</h2></div>{history.length > 0 && <button className="secondary-button" type="button" onClick={onClear}>Clear</button>}</div>{history.length === 0 ? <p className="schema-muted">Queries you run will appear here.</p> : <div className="history-list">{history.map((entry) => <article className="history-entry" key={`${entry.timestamp}-${entry.sql}`}><code>{entry.sql}</code><span>{entry.status}</span><div><button className="secondary-button" type="button" onClick={() => onLoad(entry.sql)}>Load</button><button className="secondary-button" type="button" onClick={() => onRunAgain(entry.sql)}><Play size={13} /> Run again</button><button className="icon-button" type="button" aria-label="Remove history entry" onClick={() => onRemove(entry.sql)}><Trash2 size={14} /></button></div></article>)}</div>}</section>
+}

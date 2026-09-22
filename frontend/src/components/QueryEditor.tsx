@@ -6,6 +6,7 @@ type QueryEditorProps = {
   onQueryChange: (query: string) => void
   onParse: () => void | Promise<void>
   onRun: () => void | Promise<void>
+  onClear: () => void
   onExampleSelect: (query: string) => void
   joinStrategy: JoinStrategy
   onJoinStrategyChange: (strategy: JoinStrategy) => void
@@ -30,7 +31,7 @@ const examples = [
   'SELECT user_id, AVG(amount)\nFROM expenses\nGROUP BY user_id;',
 ]
 
-export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSelect, joinStrategy, onJoinStrategyChange, scanStrategy, onScanStrategyChange, executionMode, onExecutionModeChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
+export function QueryEditor({ query, onQueryChange, onParse, onRun, onClear, onExampleSelect, joinStrategy, onJoinStrategyChange, scanStrategy, onScanStrategyChange, executionMode, onExecutionModeChange, onCompare, isParsing, isExecuting, isComparing }: QueryEditorProps) {
   const isBusy = isParsing || isExecuting || isComparing
   const hasJoin = /\bjoin\b/i.test(query)
   const hasWhere = /\bwhere\b/i.test(query)
@@ -59,6 +60,7 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onExampleSel
           <button className="secondary-button" type="button" onClick={() => void onParse()} disabled={isBusy}>
             {isParsing ? 'Parsing…' : 'Parse'}
           </button>
+          <button className="secondary-button" type="button" onClick={onClear} disabled={isBusy}>Clear</button>
           <button className="run-button" type="button" onClick={() => void onRun()} disabled={isBusy}>
             <Play size={15} fill="currentColor" />
             {isExecuting ? 'Executing…' : 'Run query'}

@@ -62,6 +62,25 @@ npm test
 npm run build
 ```
 
+## Frontend workspace
+
+The frontend has four direct routes, all available after a browser refresh:
+
+- `/workspace` — SQL editor, schema explorer, query history, AST, results, actual execution metrics, physical plan, optimizer details, and strategy comparison.
+- `/docs` — supported SQL and architecture guide with copyable examples. `Use in Workspace` loads an example without running it.
+- `/benchmarks` — deterministic performance lab for scan, join, and optimizer scenarios.
+- `/roadmap` — completed milestones and future engine work.
+
+Workspace shortcuts:
+
+- `Ctrl+Enter` on Windows/Linux or `Cmd+Enter` on macOS runs the query.
+- `Ctrl/Cmd+Shift+Enter` parses the query without executing it.
+- `Escape` closes an open Help or Settings dialog and the mobile navigation menu.
+
+The Help and Settings controls are functional. Settings are stored locally in the browser and include density, optimizer details, execution metrics, automatic plan expansion, last-query restoration, and reset-to-defaults. Query history is also local under `queryscope.history`, keeps the 30 most recent queries, deduplicates consecutive entries, and supports Load, Run again, Remove, and Clear. Loading a query never runs it automatically.
+
+The Schema Explorer supports expandable table details, row-count display when statistics are available, Refresh, Use table, and the existing Create index workflow. The application does not persist query data or schema mutations in the backend.
+
 ## Current capabilities
 
 - `GET /api/health` returns `{ "status": "ok" }`.

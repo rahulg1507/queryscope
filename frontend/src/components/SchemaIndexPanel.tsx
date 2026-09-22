@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Database, Plus, RefreshCw } from 'lucide-react'
-import type { SchemaResponse } from '../api/query'
+import type { SchemaResponse, StatisticsResponse } from '../api/query'
 
 type SchemaIndexPanelProps = {
   schema: SchemaResponse | null
@@ -9,13 +9,16 @@ type SchemaIndexPanelProps = {
   isCreating: boolean
   onRefresh: () => void | Promise<void>
   onCreateIndex: (name: string, table: string, column: string) => void | Promise<void>
+  statistics?: StatisticsResponse | null
+  onUseTable?: (name: string) => void
 }
 
-export function SchemaIndexPanel({ schema, isLoading, error, isCreating, onRefresh, onCreateIndex }: SchemaIndexPanelProps) {
+export function SchemaIndexPanel({ schema, statistics, isLoading, error, isCreating, onRefresh, onCreateIndex, onUseTable }: SchemaIndexPanelProps) {
   const firstTable = schema?.tables[0]
   const [tableName, setTableName] = useState(firstTable?.name ?? '')
   const [columnName, setColumnName] = useState(firstTable?.columns[0]?.name ?? '')
   const [indexName, setIndexName] = useState('')
+  const [expandedTables, setExpandedTables] = useState<string[]>([])
   const selectedTable = schema?.tables.find((table) => table.name === tableName) ?? firstTable
 
   useEffect(() => {
@@ -50,13 +53,14 @@ export function SchemaIndexPanel({ schema, isLoading, error, isCreating, onRefre
           <div className="schema-tables">
             {schema.tables.map((table) => (
               <article className="schema-table" key={table.name}>
-                <div className="schema-table-heading"><strong>{table.name}</strong><span>{table.columns.length} columns</span></div>
-                <div className="schema-columns">
+                <button className="schema-table-heading schema-toggle" type="button" aria-expanded={expandedTables.includes(table.name)} onClick={() => setExpandedTables((current) => current.includes(table.name) ? current.filter((name) => name !== table.name) : [...current, table.name])}><strong>{expandedTables.includes(table.name) ? '▾' : '▸'} {table.name}</strong><span>{statistics?.tables?.find((item) => item.name === table.name)?.rowCount ?? '—'} rows · {table.columns.length} columns</span></button>
+                {expandedTables.includes(table.name) && <div className="schema-columns">
                   {table.columns.map((column) => <span key={column.name}><code>{column.name}</code><small>{column.type}</small></span>)}
-                </div>
+                </div>}
                 <div className="schema-indexes">
                   <span className="schema-label">INDEXES</span>
                   {table.indexes.length ? table.indexes.map((index) => <span className="schema-index" key={index.name}>{index.name} <small>({index.column})</small></span>) : <span className="schema-muted">No indexes</span>}
+                  {onUseTable && <button className="schema-use-table" type="button" onClick={() => onUseTable(table.name)}>Use table</button>}
                 </div>
               </article>
             ))}
