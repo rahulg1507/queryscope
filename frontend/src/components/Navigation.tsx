@@ -35,8 +35,8 @@ export function Navigation({ route, backendStatus, onNavigate, onHelp, onSetting
       </nav>
       <div className="topbar-actions">
         <BackendStatusIndicator status={backendStatus} />
-        <button className="icon-button desktop-action" type="button" aria-label="Help" onClick={onHelp}><CircleHelp size={18} /></button>
-        <button className="icon-button desktop-action" type="button" aria-label="Settings" onClick={onSettings}><Settings2 size={18} /></button>
+        <button className="icon-button desktop-action" type="button" aria-label="Open help" onClick={onHelp}><CircleHelp size={18} /></button>
+        <button className="icon-button desktop-action" type="button" aria-label="Open workspace settings" onClick={onSettings}><Settings2 size={18} /></button>
       </div>
     </header>
   )

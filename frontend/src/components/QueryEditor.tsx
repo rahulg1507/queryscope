@@ -43,7 +43,7 @@ export function QueryEditor({ query, onQueryChange, onParse, onRun, onClear, onE
           <div className="eyebrow"><Code2 size={13} /> QUERY EDITOR</div>
           <h2 id="query-editor-title">Write a query</h2>
         </div>
-        <span className="coming-soon">ENGINE IN DEVELOPMENT</span>
+        <span className="coming-soon">EXPERIMENTAL ENGINE</span>
       </div>
       <label className="sr-only" htmlFor="sql-editor">SQL query</label>
       <textarea

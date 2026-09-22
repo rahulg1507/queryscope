@@ -9,10 +9,11 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; background: #080e19; }
+body { margin: 0; min-width: 320px; overflow-x: hidden; background: #080e19; }
 button, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid #68b4ff; outline-offset: 2px; }
 
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; background: radial-gradient(circle at 50% -10%, #15243c 0%, #080e19 36rem); }
 .topbar { height: 72px; display: flex; align-items: center; gap: 44px; padding: 0 5.5%; border-bottom: 1px solid #1b2a3f; background: rgba(8, 14, 25, .82); }
@@ -33,7 +34,7 @@ a { color: inherit; text-decoration: none; }
 .spin { animation: spin 1s linear infinite; }
 .icon-button { display: grid; place-items: center; width: 34px; height: 34px; color: #8195af; border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; }
 .icon-button:hover { color: #dbe6f5; border-color: #263a55; background: #122036; }
-.main-content { width: min(1120px, 89%); margin: 0 auto; padding: 66px 0 70px; flex: 1; }
+.main-content { width: min(1120px, 89%); min-width: 0; margin: 0 auto; padding: 66px 0 70px; flex: 1; }
 .page-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 29px; }
 .section-kicker, .eyebrow, .panel-state, .coming-soon, .version-badge { font: 500 10px 'DM Mono', monospace; letter-spacing: .1em; }
 .section-kicker { margin: 0 0 14px; color: #56a5ff; }
@@ -61,6 +62,10 @@ h1 { color: #f0f6ff; font-size: clamp(30px, 4vw, 43px); line-height: 1.1; letter
 .schema-label { color: #5f84a8; font: 500 9px 'DM Mono', monospace; letter-spacing: .08em; }
 .schema-index { padding: 3px 5px; border: 1px solid #2d5e77; border-radius: 3px; color: #7bd3b0; background: #0e2b31; }
 .schema-error { margin: 12px 0 0; color: #f0aab2; font: 11px/1.5 'DM Mono', monospace; }
+.schema-feedback { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.schema-feedback .schema-error { margin: 0; }
+.schema-feedback .secondary-button { padding: 5px 9px; font-size: 10px; }
+.schema-success { margin-top: 12px; color: #6ee3a4; font: 10px/1.5 'DM Mono', monospace; }
 .index-form { display: grid; align-content: start; gap: 7px; padding: 12px; border: 1px solid #213b59; border-radius: 5px; background: #0b1929; }
 .index-form label { margin-top: 3px; color: #8ca8c5; font: 10px 'DM Mono', monospace; }
 .index-form input, .index-form select { width: 100%; padding: 7px 8px; outline: none; border: 1px solid #315071; border-radius: 4px; color: #c5dcf5; background: #091523; font: 10px 'DM Mono', monospace; }
@@ -214,6 +219,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .plan-collapsed summary { padding: 10px; border: 1px solid #294563; border-radius: 5px; cursor: pointer; }
 .plan-collapsed .execution-plan-tree { margin-top: 12px; }
 .history-card { margin-top: 18px; padding: 20px 25px; }
+.workspace-feedback { min-height: 18px; margin: 9px 2px 0; color: #6ee3a4; font: 10px 'DM Mono', monospace; }
 .history-list { display: grid; gap: 8px; margin-top: 15px; }
 .history-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #213b59; border-radius: 5px; background: #091523; }
 .history-entry code { overflow: hidden; color: #b9d8f5; font: 10px/1.5 'DM Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
@@ -253,10 +259,14 @@ tbody tr:last-child td { border-bottom: 0; }
 .dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .dialog-heading h2 { margin: 0; font-size: 20px; }
 .dialog-lead { margin-top: 15px; color: #a4bad4; font-size: 13px; line-height: 1.7; }
+.help-copy { display: grid; gap: 8px; margin-top: 16px; padding-bottom: 16px; border-bottom: 1px solid #243e5c; }
+.help-copy strong { color: #dcecff; font: 10px 'DM Mono', monospace; letter-spacing: .08em; }
+.help-copy p { color: #a4bad4; font-size: 12px; line-height: 1.65; }
 .help-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 17px; }
 .help-grid > div { padding: 13px; border: 1px solid #243e5c; border-radius: 6px; background: #091523; }
 .help-grid strong { color: #dcecff; font-size: 12px; }
 .help-grid p { margin-top: 9px; color: #92a9c2; font-size: 11px; line-height: 1.6; }
+.help-grid ol { display: grid; gap: 7px; margin: 10px 0 0; padding-left: 19px; color: #92a9c2; font-size: 11px; line-height: 1.5; }
 kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #cce3fb; background: #142942; font: 10px 'DM Mono', monospace; }
 .settings-form { display: grid; gap: 13px; margin-top: 17px; color: #a4bad4; font-size: 12px; }
 .settings-form label { display: flex; align-items: center; gap: 8px; }
@@ -291,6 +301,10 @@ kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #c
   .editor-actions { width: 100%; }
   .editor-actions button { flex: 1; }
   .schema-layout { grid-template-columns: 1fr; }
+  .schema-card { padding: 18px 16px; }
+  .schema-table-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .schema-indexes { align-items: flex-start; }
+  .schema-use-table { margin-left: 0; }
   .compare-button { width: 100%; justify-content: center; margin-left: 0; }
   .bottom-panels { grid-template-columns: 1fr; }
   .history-entry { grid-template-columns: 1fr auto; }
@@ -298,6 +312,10 @@ kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #c
   .docs-layout, .roadmap-grid { grid-template-columns: 1fr; }
   .docs-toc { position: static; }
   .help-grid { grid-template-columns: 1fr; }
+  .dialog { max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px; }
+  .benchmark-controls { align-items: stretch; flex-direction: column; }
+  .benchmark-controls select, .benchmark-run { width: 100%; margin-left: 0; }
+  .benchmark-summary { align-items: flex-start; flex-direction: column; }
   .plan-node { width: 100%; }
   .plan-branch-join > .plan-children { flex-direction: column; gap: 0; }
   .app-footer { flex-direction: column; gap: 8px; }

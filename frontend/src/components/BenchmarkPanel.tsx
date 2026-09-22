@@ -56,9 +56,9 @@ export function BenchmarkPanel() {
         <select id="benchmark-size" value={datasetSize} onChange={(event) => setDatasetSize(event.target.value)}>
           {catalog.datasetSizes.map((value) => <option key={value} value={value}>{value}</option>)}
         </select>
-        <button className="secondary-button benchmark-run" type="button" onClick={() => void handleRun()} disabled={isLoading}>
+        <button className="secondary-button benchmark-run" type="button" onClick={() => void handleRun()} disabled={isLoading} aria-busy={isLoading}>
           {isLoading ? <RefreshCw className="spin" size={14} /> : <Play size={14} />}
-          {isLoading ? 'Running…' : 'Run benchmark'}
+          {isLoading ? 'Running…' : error ? 'Run again' : 'Run benchmark'}
         </button>
       </div>
       {error && <p className="benchmark-error" role="alert">{error}</p>}

@@ -394,4 +394,39 @@ describe('App', () => {
     expect(screen.getByText((_, element) => element?.textContent === '0 rows')).toBeInTheDocument()
     expect(screen.getByText('PLAN GENERATED')).toBeInTheDocument()
   })
+
+  it('loads a schema table into the editor, expands details, refreshes, and clears', async () => {
+    const fetchMock = healthyFetch()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getAllByText('users').length).toBeGreaterThan(0))
+    await user.click(screen.getAllByRole('button', { name: 'Use table' })[0])
+    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue('SELECT * FROM users;')
+    expect(screen.getByText('Query loaded into workspace.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /users.*Expand table/ }))
+    expect(screen.getByText('id')).toBeInTheDocument()
+    expect(screen.getAllByText('INTEGER').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'Refresh schema' }))
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => input.toString() === '/api/schema').length).toBeGreaterThan(1))
+
+    await user.click(screen.getAllByRole('button', { name: 'Clear' })[0])
+    expect(screen.getByRole('textbox', { name: 'SQL query' })).toHaveValue('')
+    expect(screen.getByText('Editor cleared.')).toBeInTheDocument()
+  })
+
+  it('rejects invalid index names before making an index request', async () => {
+    const fetchMock = healthyFetch()
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByLabelText('Index name')).toBeInTheDocument())
+    await user.type(screen.getByLabelText('Index name'), 'bad index')
+    await user.click(screen.getByRole('button', { name: 'Create index' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Use a name beginning with a letter or underscore')
+    expect(fetchMock.mock.calls.some(([input]) => input.toString() === '/api/schema/indexes')).toBe(false)
+  })
 })
