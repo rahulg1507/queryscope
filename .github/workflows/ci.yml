@@ -1,0 +1,79 @@
+name: QueryScope CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests and package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+      - name: Run backend tests
+        run: ./mvnw --batch-mode test
+      - name: Package backend
+        run: ./mvnw --batch-mode package -DskipTests
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Run frontend tests
+        run: npm test -- --run
+      - name: Build frontend
+        run: npm run build
+
+  repository-quality:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Reject generated artifacts and environment files
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)(target|dist|node_modules)/'; then
+            echo "Generated build artifacts are tracked."
+            exit 1
+          fi
+          if git ls-files | grep -E '(^|/)\.env($|\.)'; then
+            echo "Environment files must not be tracked."
+            exit 1
+          fi
+      - name: Reject obvious private-key material
+        shell: bash
+        run: |
+          if git grep -q -I -E 'BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY|AKIA[0-9A-Z]{16}' -- .; then
+            echo "Potential private-key or access-key material detected."
+            exit 1
+          fi

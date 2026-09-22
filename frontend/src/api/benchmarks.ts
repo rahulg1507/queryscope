@@ -1,4 +1,5 @@
 import type { OptimizerCandidate } from './query'
+import { apiUrl } from './config'
 
 export type BenchmarkCatalog = { scenarios: string[]; datasetSizes: string[] }
 export type BenchmarkComparison = {
@@ -35,7 +36,7 @@ export type BenchmarkResult = {
 }
 
 async function benchmarkRequest(path: string, init?: RequestInit): Promise<unknown> {
-  const response = await fetch(path, init)
+  const response = await fetch(apiUrl(path), init)
   const payload = await response.clone().json().catch(() => null) as { error?: string } | null
   if (!response.ok) throw new Error(payload?.error ?? 'The benchmark request failed.')
   return payload

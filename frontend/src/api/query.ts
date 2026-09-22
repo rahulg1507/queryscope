@@ -1,3 +1,5 @@
+import { apiUrl } from './config'
+
 export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
 export type JoinStrategy = 'NESTED_LOOP' | 'HASH'
 export type ScanStrategy = 'TABLE' | 'INDEX'
@@ -54,7 +56,7 @@ export type ExecutionPlanNode = {
 
 async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', options?: { mode?: ExecutionMode; joinStrategy?: JoinStrategy; scanStrategy?: ScanStrategy }) {
   try {
-    const response = await fetch(path, {
+    const response = await fetch(apiUrl(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sql, ...options }),
@@ -90,7 +92,7 @@ export type StatisticsResponse = { tables: StatisticsTable[] }
 
 async function schemaRequest(path: string, init?: RequestInit): Promise<SchemaResponse> {
   try {
-    const response = await fetch(path, init)
+    const response = await fetch(apiUrl(path), init)
     const payload = (await response.json().catch(() => null)) as SchemaResponse & { error?: string } | null
     if (!response.ok) throw new ParseApiError(payload?.error ?? 'The schema request failed.', 'execution')
     return payload as SchemaResponse

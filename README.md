@@ -4,6 +4,135 @@
 
 QueryScope is a database-engineering project, not a CRUD application. The long-term goal is to build a small relational database engine in Java and a React interface that makes query execution and planning visible.
 
+QueryScope demonstrates how a SQL statement becomes an executable plan. It implements a small relational engine from scratch and pairs it with a React workspace that exposes the AST, physical operators, optimizer decisions, and measured execution metrics.
+
+This is an educational and experimental project, not a production database, PostgreSQL replacement, or enterprise data platform. The demo database is intentionally in-memory: restarting the backend resets runtime data and indexes.
+
+## Features
+
+- SQL lexer/parser and immutable AST generation
+- In-memory relational execution with table scans, filters, and projections
+- Nested-loop and hash joins
+- `GROUP BY`, `COUNT`, `SUM`, and `AVG`
+- Order-4 B+ tree indexes and index scans
+- Execution-plan visualization with operator metrics
+- Table statistics, cardinality estimation, and cost-based optimization
+- Deterministic benchmark scenarios using operation counts instead of wall-clock timing
+- Interactive React workspace with Docs, Help, Settings, Roadmap, and query history
+
+## Architecture
+
+```mermaid
+flowchart TD
+    SQL[SQL text] --> Lexer[Lexer / Parser]
+    Lexer --> AST[AST]
+    AST --> Logical[Logical plan]
+    Logical --> Stats[Statistics]
+    Stats --> Optimizer[Optimizer]
+    Optimizer --> Physical[Physical plan]
+    Physical --> Operators[Execution operators]
+    Operators --> Results[Results and metrics]
+
+    UI[React UI] -->|REST /api| API[Spring Boot API]
+    API --> Engine[QueryScope engine]
+    Engine --> Results
+```
+
+The frontend and backend are separate in development and use same-origin `/api` requests in the production container. A production frontend can also set `VITE_API_BASE_URL` to an explicitly hosted backend origin.
+
+## How the engine works
+
+1. The parser turns supported SQL into an AST, a structured representation of what the user wrote.
+2. The planner turns that AST into a logical execution shape such as projection → filter → scan.
+3. Statistics describe table sizes, distinct values, ranges, and indexes.
+4. The optimizer estimates eligible alternatives and chooses a physical plan in `AUTO` mode. `MANUAL` mode preserves requested strategies.
+5. Operators execute the plan: table scans inspect rows directly, index scans use B+ tree lookups, joins combine rows, and aggregation groups them.
+6. The workspace displays rows, measured work, the plan tree, and optimizer reasoning.
+7. The deterministic benchmark lab runs equivalent strategies over isolated generated data and compares operation counts rather than timing.
+
+## Quick start
+
+### Docker Compose
+
+```bash
+git clone <repository-url>
+cd queryscope
+docker compose up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000). The backend health endpoint is available at [http://localhost:8080/api/health](http://localhost:8080/api/health).
+
+Stop the services with:
+
+```bash
+docker compose down
+```
+
+The Compose frontend proxies `/api` to the backend container, so the browser never attempts to resolve the internal hostname `backend`. Data remains in memory and resets when the backend restarts.
+
+### Manual development
+
+Terminal 1:
+
+```bash
+cd backend
+
+# Windows PowerShell
+.\mvnw.cmd spring-boot:run
+
+# macOS/Linux
+./mvnw spring-boot:run
+```
+
+Terminal 2:
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+Visit [http://localhost:3000](http://localhost:3000). Vite proxies `/api` to `http://localhost:8080` during development. The backend port defaults to `8080` and can be changed with `PORT`; production CORS origins can be supplied with `QUERYSCOPE_ALLOWED_ORIGINS`.
+
+## Testing and builds
+
+Backend:
+
+```bash
+cd backend
+
+# Windows PowerShell
+.\mvnw.cmd test
+.\mvnw.cmd package -DskipTests
+
+# macOS/Linux
+./mvnw test
+./mvnw package -DskipTests
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm test -- --run
+npm run build
+```
+
+GitHub Actions runs these checks on every push and pull request without requiring manually running either application.
+
+## Production preparation
+
+- `backend/Dockerfile` builds the Spring Boot JAR in a Maven stage and runs it as a non-root user on a JRE image.
+- `frontend/Dockerfile` builds Vite assets with Node and serves them from nginx.
+- `frontend/nginx.conf` provides SPA fallback for `/workspace`, `/docs`, `/benchmarks`, and `/roadmap`, proxies `/api/` to the backend service, and applies immutable caching only to hashed assets.
+- `frontend/.env.example` documents `VITE_API_BASE_URL`; blank keeps the recommended same-origin `/api` behavior.
+- `PORT` and `QUERYSCOPE_ALLOWED_ORIGINS` configure the Spring Boot runtime without changing local defaults.
+
+## Deterministic benchmark evidence
+
+The verified `INDEX_EQUALITY` / `SMALL` scenario compares the same result over 1,000 expense rows: the table scan inspects 1,000 rows, while the index scan performs one lookup, examines two matching rows, and returns the same two rows. These are deterministic operation counts, not a production performance guarantee.
+
 ## Project structure
 
 ```text
