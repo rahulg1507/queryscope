@@ -40,6 +40,13 @@ flowchart TD
 
 The frontend and backend are separate in development and use same-origin `/api` requests in the production container. A production frontend can also set `VITE_API_BASE_URL` to an explicitly hosted backend origin.
 
+## Live deployment
+
+- Web app: [queryscope-frontend.onrender.com](https://queryscope-frontend.onrender.com)
+- Backend health: [queryscope-backend-2y38.onrender.com/api/health](https://queryscope-backend-2y38.onrender.com/api/health)
+
+The live deployment uses separate Render services with `VITE_API_BASE_URL` pointed at the backend and an exact production CORS origin. It uses the same in-memory demo database, so runtime data and indexes reset when the backend restarts.
+
 ## How the engine works
 
 1. The parser turns supported SQL into an AST, a structured representation of what the user wrote.
