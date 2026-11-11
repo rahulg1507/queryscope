@@ -15,11 +15,13 @@ export function BackendStatus({ status, onRetry }: BackendStatusProps) {
   }[status]
 
   return (
-    <div className={`status-pill status-${status}`} role="status" aria-live="polite">
-      {content.icon}
-      <span>{content.label}</span>
+    <div className="status-stack" role="status" aria-live="polite">
+      <div className={`status-pill status-${status}`}>
+        {content.icon}
+        <span>{content.label}</span>
+        {status === 'unavailable' && <button className="status-retry" type="button" onClick={onRetry}>Retry</button>}
+      </div>
       {status === 'waking' && <span className="status-detail">First request after inactivity may take around a minute.</span>}
-      {status === 'unavailable' && <button className="status-retry" type="button" onClick={onRetry}>Retry</button>}
     </div>
   )
 }

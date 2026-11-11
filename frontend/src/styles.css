@@ -27,17 +27,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .nav-link { display: flex; align-items: center; gap: 8px; color: #71839c; font-size: 12px; font-weight: 700; border-bottom: 2px solid transparent; }
 .nav-link.active { color: #dbe6f5; border-color: #4896ff; }
 .topbar-actions { display: flex; align-items: center; gap: 11px; margin-left: auto; }
+.status-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
 .status-pill { display: flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid #25415f; border-radius: 999px; font: 500 10px 'DM Mono', monospace; letter-spacing: .02em; white-space: nowrap; }
 .status-connected { color: #6ee3a4; background: #0d241e; border-color: #1f563f; }
 .status-unavailable { color: #ff9b9b; background: #2a151d; border-color: #6a2837; }
 .status-checking { color: #a5bad6; background: #111e30; }
-  .status-waking { color: #f0c778; background: #2a2115; border-color: #73562a; }
-  .status-detail { max-width: 245px; color: #d6bb7b; font: 9px/1.3 'DM Mono', monospace; }
+.status-pill.status-waking { color: #f0c778; background: #2a2115; border-color: #73562a; }
+.status-detail { display: block; width: min(245px, 100%); color: #d6bb7b; font: 9px/1.35 'DM Mono', monospace; text-align: right; white-space: normal; overflow-wrap: anywhere; }
   .status-retry { padding: 3px 7px; border: 1px solid currentColor; border-radius: 4px; color: inherit; background: transparent; font: 9px 'DM Mono', monospace; cursor: pointer; }
   .status-retry:hover { background: rgb(255 255 255 / 8%); }
 .spin { animation: spin 1s linear infinite; }
 .icon-button { display: grid; place-items: center; width: 34px; height: 34px; color: #8195af; border: 1px solid transparent; border-radius: 7px; background: transparent; cursor: pointer; }
 .icon-button:hover { color: #dbe6f5; border-color: #263a55; background: #122036; }
+@media (min-width: 701px) and (max-width: 900px) {
+  .topbar { height: auto; min-height: 72px; flex-wrap: wrap; gap: 0 18px; padding: 12px 4%; }
+  .brand-mark { min-width: 190px; }
+  .top-nav { gap: 14px; }
+  .nav-link { gap: 5px; font-size: 11px; }
+  .topbar-actions { flex: 1 0 100%; justify-content: flex-end; gap: 6px; margin-top: 9px; }
+  .status-detail { width: min(190px, 100%); }
+}
 .main-content { width: min(1120px, 89%); min-width: 0; margin: 0 auto; padding: 66px 0 70px; flex: 1; }
 .page-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 29px; }
 .section-kicker, .eyebrow, .panel-state, .coming-soon, .version-badge { font: 500 10px 'DM Mono', monospace; letter-spacing: .1em; }
@@ -279,7 +288,10 @@ kbd { padding: 2px 4px; border: 1px solid #3c5976; border-radius: 3px; color: #c
   .mobile-nav-action { display: flex; align-items: center; gap: 8px; color: #71839c; background: transparent; font-size: 12px; font-weight: 700; text-align: left; }
   .mobile-nav-action:hover { color: #dbe6f5; background: #122036; }
   .topbar-actions { gap: 5px; }
+  .topbar-actions { width: 100%; justify-content: flex-end; margin-top: 10px; }
   .topbar-actions .desktop-action { display: none; }
+  .status-stack { align-items: flex-start; }
+  .status-detail { width: min(245px, calc(100vw - 32px)); text-align: left; }
   .status-pill { padding: 6px 8px; font-size: 9px; }
   .main-content { padding-top: 40px; }
   .page-intro { display: block; }
