@@ -130,6 +130,8 @@ const schemaResponse = {
   ],
 }
 
+const statisticsResponse = { tables: schemaResponse.tables.map((table) => ({ name: table.name, rowCount: 4, columns: [], indexes: [] })) }
+
 const indexedSchemaResponse = {
   tables: schemaResponse.tables.map((table) => table.name === 'expenses'
     ? { ...table, indexes: [{ name: 'idx_amount', column: 'amount' }] }
@@ -164,6 +166,7 @@ function healthyFetch(
     const path = input.toString()
     if (path === '/api/health') return jsonResponse({ status: 'ok' })
     if (path === '/api/schema') return jsonResponse(schemaResponse)
+    if (path === '/api/statistics') return jsonResponse(statisticsResponse)
     if (path === '/api/schema/indexes') return jsonResponse(schemaResponse)
     const response = path.endsWith('/parse') ? parseResponse : executeResponse
     if (response instanceof Error) throw response
@@ -225,6 +228,7 @@ describe('App', () => {
       const path = input.toString()
       if (path === '/api/health') return jsonResponse({ status: 'ok' })
       if (path === '/api/schema') return jsonResponse({ error: 'Not Found' }, 404)
+      if (path === '/api/statistics') return jsonResponse(statisticsResponse)
       if (path.endsWith('/parse')) return jsonResponse(parsedAst)
       return jsonResponse(queryResult)
     })
@@ -273,6 +277,7 @@ describe('App', () => {
       const path = input.toString()
       if (path === '/api/health') return jsonResponse({ status: 'ok' })
       if (path === '/api/schema') return jsonResponse(schemaResponse)
+      if (path === '/api/statistics') return jsonResponse(statisticsResponse)
       if (path.endsWith('/parse')) return jsonResponse(parsedAst)
       const body = JSON.parse(String(init?.body ?? '{}')) as { joinStrategy?: string }
       return jsonResponse(body.joinStrategy === 'HASH' ? hashJoinResult : joinResult)
@@ -341,6 +346,7 @@ describe('App', () => {
       const path = input.toString()
       if (path === '/api/health') return jsonResponse({ status: 'ok' })
       if (path === '/api/schema') return jsonResponse(schemaResponse)
+      if (path === '/api/statistics') return jsonResponse(statisticsResponse)
       if (path.endsWith('/parse')) return jsonResponse(parsedAst)
       executeCalls += 1
       return executeCalls === 1
@@ -369,6 +375,45 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Backend unavailable'))
   })
 
+  it('shows a waking state during a slow health check and recovers to connected', async () => {
+    let resolveHealth!: (response: Response) => void
+    const pendingHealth = new Promise<Response>((resolve) => { resolveHealth = resolve })
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const path = input.toString()
+      if (path === '/api/health') return pendingHealth
+      if (path === '/api/schema') return jsonResponse(schemaResponse)
+      if (path === '/api/statistics') return jsonResponse(statisticsResponse)
+      return jsonResponse(queryResult)
+    })
+    render(<App />)
+
+    await waitFor(() => expect(screen.getByText('Backend waking up')).toBeInTheDocument(), { timeout: 2500 })
+    expect(screen.getByText(/first request after inactivity may take around a minute/i)).toBeInTheDocument()
+    resolveHealth(jsonResponse({ status: 'ok' }))
+    await waitFor(() => expect(screen.getByText('Backend connected')).toBeInTheDocument())
+  })
+
+  it('clears a query error and recovers after retry', async () => {
+    let executeCalls = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const path = input.toString()
+      if (path === '/api/health') return jsonResponse({ status: 'ok' })
+      if (path === '/api/schema') return jsonResponse(schemaResponse)
+      if (path === '/api/statistics') return jsonResponse(statisticsResponse)
+      if (path.endsWith('/parse')) return jsonResponse(parsedAst)
+      executeCalls += 1
+      return executeCalls === 1 ? jsonResponse({ error: 'Backend waking up' }, 503) : jsonResponse(queryResult)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Backend waking up'))
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(screen.getByText('EXECUTION SUCCESS')).toBeInTheDocument())
+    expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument()
+  })
+
   it('disables Run while executing and restores it afterward', async () => {
     let resolveExecute!: (response: Response) => void
     const pendingExecute = new Promise<Response>((resolve) => { resolveExecute = resolve })
@@ -381,6 +426,16 @@ describe('App', () => {
 
     resolveExecute(jsonResponse(queryResult))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Run query' })).toBeEnabled())
+  })
+
+  it('restores Run after an execution request fails', async () => {
+    healthyFetch(jsonResponse(parsedAst), jsonResponse({ error: 'Temporary backend failure' }, 503))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Run query' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Temporary backend failure'))
+    expect(screen.getByRole('button', { name: 'Run query' })).toBeEnabled()
   })
 
   it('renders an empty result set clearly', async () => {

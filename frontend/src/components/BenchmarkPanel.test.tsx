@@ -53,4 +53,23 @@ describe('BenchmarkPanel', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Benchmark unavailable'))
     expect(screen.queryByText('EQUIVALENT RESULTS')).not.toBeInTheDocument()
   })
+
+  it('recovers from a benchmark failure when Run again is selected', async () => {
+    let runCalls = 0
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (input.toString().endsWith('/scenarios')) return new Response(JSON.stringify(catalog), { status: 200 })
+      runCalls += 1
+      return runCalls === 1
+        ? new Response(JSON.stringify({ error: 'Backend waking up' }), { status: 503 })
+        : new Response(JSON.stringify(result), { status: 200 })
+    })
+    const user = userEvent.setup()
+    render(<BenchmarkPanel />)
+
+    await user.click(screen.getByRole('button', { name: 'Run benchmark' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Backend waking up'))
+    await user.click(screen.getByRole('button', { name: 'Run again' }))
+    await waitFor(() => expect(screen.getByText('EQUIVALENT RESULTS')).toBeInTheDocument())
+    expect(screen.queryByText('Backend waking up')).not.toBeInTheDocument()
+  })
 })

@@ -2,9 +2,10 @@ import { AlertCircle } from 'lucide-react'
 
 type ExecutionErrorPanelProps = {
   message: string
+  onRetry?: () => void
 }
 
-export function ExecutionErrorPanel({ message }: ExecutionErrorPanelProps) {
+export function ExecutionErrorPanel({ message, onRetry }: ExecutionErrorPanelProps) {
   return (
     <section className="workspace-card parse-error-card" role="alert" aria-labelledby="execution-error-title">
       <div className="card-heading compact-heading">
@@ -14,6 +15,7 @@ export function ExecutionErrorPanel({ message }: ExecutionErrorPanelProps) {
       <div className="parse-error-content">
         <h2 id="execution-error-title">Query could not execute</h2>
         <p>{message}</p>
+        {onRetry && <button className="secondary-button" type="button" onClick={onRetry}>Retry</button>}
       </div>
     </section>
   )

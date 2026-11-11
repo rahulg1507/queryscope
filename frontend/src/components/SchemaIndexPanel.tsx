@@ -57,7 +57,7 @@ export function SchemaIndexPanel({ schema, statistics, isLoading, error, success
       </div>
       {error ? <div className="schema-feedback" role="alert"><p className="schema-error">{error}</p><button className="secondary-button" type="button" onClick={() => void onRefresh()} disabled={isLoading}>Retry</button></div> : null}
       {success ? <p className="schema-success" role="status">{success}</p> : null}
-      {isLoading && !schema ? <p className="schema-muted">Loading schema…</p> : null}
+      {isLoading && !schema ? <p className="schema-muted">Loading schema… The backend may be waking up; the first request after inactivity can take around a minute.</p> : null}
       {!isLoading && !error && schema && schema.tables.length === 0 ? <p className="schema-muted">No tables available.</p> : null}
       {schema && schema.tables.length > 0 ? (
         <div className="schema-layout">

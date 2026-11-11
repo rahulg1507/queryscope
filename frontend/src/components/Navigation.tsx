@@ -5,7 +5,7 @@ import { BackendStatus as BackendStatusIndicator } from './BackendStatus'
 import type { BackendStatus } from '../api/health'
 import type { Route } from '../routing'
 
-type NavigationProps = { route: Route; backendStatus: BackendStatus; onNavigate: (route: Route) => void; onHelp: () => void; onSettings: () => void }
+type NavigationProps = { route: Route; backendStatus: BackendStatus; onRetryBackend: () => void; onNavigate: (route: Route) => void; onHelp: () => void; onSettings: () => void }
 
 const items: Array<{ route: Route; label: string; icon: typeof Layers3 }> = [
   { route: '/workspace', label: 'Workspace', icon: Layers3 },
@@ -13,7 +13,7 @@ const items: Array<{ route: Route; label: string; icon: typeof Layers3 }> = [
   { route: '/benchmarks', label: 'Benchmarks', icon: BarChart3 },
 ]
 
-export function Navigation({ route, backendStatus, onNavigate, onHelp, onSettings }: NavigationProps) {
+export function Navigation({ route, backendStatus, onRetryBackend, onNavigate, onHelp, onSettings }: NavigationProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   useEffect(() => { setMenuOpen(false) }, [route])
   useEffect(() => {
@@ -33,7 +33,7 @@ export function Navigation({ route, backendStatus, onNavigate, onHelp, onSetting
         <button className="mobile-nav-action" type="button" onClick={onSettings}><Settings2 size={15} /> Settings</button>
       </nav>
       <div className="topbar-actions">
-        <BackendStatusIndicator status={backendStatus} />
+        <BackendStatusIndicator status={backendStatus} onRetry={onRetryBackend} />
         <button className="icon-button desktop-action" type="button" aria-label="Open help" onClick={onHelp}><CircleHelp size={18} /></button>
         <button className="icon-button desktop-action" type="button" aria-label="Open workspace settings" onClick={onSettings}><Settings2 size={18} /></button>
       </div>

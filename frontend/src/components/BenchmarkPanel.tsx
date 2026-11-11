@@ -62,6 +62,7 @@ export function BenchmarkPanel() {
         </button>
       </div>
       {error && <p className="benchmark-error" role="alert">{error}</p>}
+      {isLoading && <p className="benchmark-loading" role="status">Running benchmark… The backend may be waking up; the first request after inactivity can take around a minute.</p>}
       {!result && !error && <p className="benchmark-placeholder">Choose a safe predefined scenario to compare deterministic operation counts. Wall-clock timing is intentionally excluded.</p>}
       {result && (
         <div className="benchmark-results">

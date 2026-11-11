@@ -1,4 +1,4 @@
-import { apiUrl } from './config'
+import { requestJson, ApiRequestError } from './client'
 
 export type QueryApiErrorKind = 'parser' | 'execution' | 'backend'
 export type JoinStrategy = 'NESTED_LOOP' | 'HASH'
@@ -56,19 +56,15 @@ export type ExecutionPlanNode = {
 
 async function postSql(path: string, sql: string, errorKind: 'parser' | 'execution', options?: { mode?: ExecutionMode; joinStrategy?: JoinStrategy; scanStrategy?: ScanStrategy }) {
   try {
-    const response = await fetch(apiUrl(path), {
+    return await requestJson<ParsedQuery | QueryResult>(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sql, ...options }),
     })
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    if (!response.ok) {
-      throw new ParseApiError(payload?.error ?? 'The query request failed.', errorKind)
-    }
-    return payload
   } catch (error) {
     if (error instanceof ParseApiError) throw error
-    throw new ParseApiError('Backend unavailable. Make sure the QueryScope API is running.', 'backend')
+    if (error instanceof ApiRequestError && error.kind === 'http') throw new ParseApiError(error.message, errorKind)
+    throw new ParseApiError(error instanceof Error ? error.message : 'Backend unavailable. Please retry.', 'backend')
   }
 }
 
@@ -92,13 +88,11 @@ export type StatisticsResponse = { tables: StatisticsTable[] }
 
 async function schemaRequest(path: string, init?: RequestInit): Promise<SchemaResponse> {
   try {
-    const response = await fetch(apiUrl(path), init)
-    const payload = (await response.json().catch(() => null)) as SchemaResponse & { error?: string } | null
-    if (!response.ok) throw new ParseApiError(payload?.error ?? 'The schema request failed.', 'execution')
-    return payload as SchemaResponse
+    return await requestJson<SchemaResponse>(path, init)
   } catch (error) {
     if (error instanceof ParseApiError) throw error
-    throw new ParseApiError('Backend unavailable. Make sure the QueryScope API is running.', 'backend')
+    if (error instanceof ApiRequestError && error.kind === 'http') throw new ParseApiError(error.message, 'execution')
+    throw new ParseApiError(error instanceof Error ? error.message : 'Backend unavailable. Please retry.', 'backend')
   }
 }
 
